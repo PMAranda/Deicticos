@@ -1,7 +1,7 @@
-import { CameraModule }     from './modules/camera.js';
-import { CalibrationModule } from './modules/calibration.js';
-import { HomographyModule }  from './modules/homography.js';
-import { CoordinateSystem }  from './modules/coordinates.js';
+import { CameraModule }     from './modules/homografia/camera.js';
+import { CalibrationModule } from './modules/homografia/calibration.js';
+import { HomographyModule }  from './modules/homografia/homography.js';
+import { CoordinateSystem }  from './modules/homografia/coordinates.js';
 
 const STATES = Object.freeze({ IDLE: 'IDLE', CALIBRATING: 'CALIBRATING', CALIBRATED: 'CALIBRATED' });
 

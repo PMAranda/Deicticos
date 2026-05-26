@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fase 1 — Infraestructura Geométrica</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <header>
+    <h1>Reconocimiento de Gestos Deícticos</h1>
+    <p class="subtitle">Fase 1 — Infraestructura Geométrica Base</p>
+  </header>
+
+  <main>
+    <section class="controls">
+      <button id="calibrateBtn">Calibrar</button>
+      <button id="resetBtn" disabled>Reiniciar</button>
+      <p id="status" class="status">Cargando OpenCV…</p>
+    </section>
+
+    <section class="views">
+      <div class="view-container">
+        <h2>Vista cámara</h2>
+        <canvas id="rawCanvas"></canvas>
+      </div>
+      <div class="view-container">
+        <h2>Vista rectificada</h2>
+        <canvas id="rectCanvas"></canvas>
+      </div>
+    </section>
+
+    <section class="coords-panel">
+      <div id="coords"></div>
+    </section>
+  </main>
+
+  <video id="video" autoplay playsinline muted style="display:none"></video>
+
+  <script>
+    var Module = {
+      onRuntimeInitialized() {
+        window.dispatchEvent(new Event('opencv-ready'));
+      }
+    };
+  </script>
+  <script async src="https://docs.opencv.org/4.8.0/opencv.js"></script>
+  <script type="module" src="main.js"></script>
+
+</body>
+</html>

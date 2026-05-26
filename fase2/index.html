@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fase 2 — Estimación Corporal</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <header>
+    <h1>Reconocimiento de Gestos Deícticos</h1>
+    <p class="subtitle">Fase 2 — Estimación Corporal en Tiempo Real</p>
+  </header>
+
+  <main>
+    <section class="controls">
+      <p id="status" class="status">Iniciando…</p>
+      <div id="trackingBadge" class="tracking-badge inactive">Sin detección</div>
+    </section>
+
+    <section class="view-container">
+      <h2>Vista cámara · landmarks · estabilidad</h2>
+      <canvas id="canvas"></canvas>
+    </section>
+
+    <section class="legend">
+      <div class="legend-item">
+        <span class="dot" style="background:#4D9FFF"></span> Brazo izquierdo
+      </div>
+      <div class="legend-item">
+        <span class="dot" style="background:#FF6464"></span> Brazo derecho
+      </div>
+      <div class="legend-item">
+        <span class="dot" style="background:#FFD700"></span> Dedo índice
+      </div>
+      <div class="legend-item">
+        <span class="ring" style="border-color:#4DFF88"></span> Estable
+      </div>
+      <div class="legend-item">
+        <span class="ring" style="border-color:#FFD700"></span> Moderado
+      </div>
+      <div class="legend-item">
+        <span class="ring" style="border-color:#FF4D4D"></span> Inestable
+      </div>
+    </section>
+  </main>
+
+  <video id="video" autoplay playsinline muted style="display:none"></video>
+
+  <!-- Sin OpenCV — solo MediaPipe cargado desde los módulos ES -->
+  <script type="module" src="main.js"></script>
+
+</body>
+</html>
