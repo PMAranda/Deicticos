@@ -3,52 +3,131 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Fase 2 — Estimación Corporal</title>
+  <title>Fase 2 — Evaluación de Estimación Corporal</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
   <header>
     <h1>Reconocimiento de Gestos Deícticos</h1>
-    <p class="subtitle">Fase 2 — Estimación Corporal en Tiempo Real</p>
+    <p class="subtitle">Fase 2 — Evaluación de Estimación Corporal en Tiempo Real</p>
   </header>
 
   <main>
-    <section class="controls">
-      <p id="status" class="status">Iniciando…</p>
-      <div id="trackingBadge" class="tracking-badge inactive">Sin detección</div>
+
+    <!-- ── Condición experimental ──────────────────────────────────────────── -->
+    <section class="conditions-panel">
+      <div class="condition-group">
+        <span class="condition-label">Distancia</span>
+        <button class="tag" data-group="distance" data-value="cerca">Cerca</button>
+        <button class="tag active" data-group="distance" data-value="media">Media</button>
+        <button class="tag" data-group="distance" data-value="lejos">Lejos</button>
+      </div>
+      <div class="condition-group">
+        <span class="condition-label">Iluminación</span>
+        <button class="tag active" data-group="lighting" data-value="normal">Normal</button>
+        <button class="tag" data-group="lighting" data-value="baja">Baja</button>
+        <button class="tag" data-group="lighting" data-value="fuerte">Fuerte</button>
+      </div>
+      <div class="condition-group">
+        <span class="condition-label">Movimiento</span>
+        <button class="tag active" data-group="movement" data-value="lento">Lento</button>
+        <button class="tag" data-group="movement" data-value="rapido">Rápido</button>
+      </div>
+      <div class="condition-group">
+        <span class="condition-label">Oclusión</span>
+        <button class="tag active" data-group="occlusion" data-value="ninguna">Ninguna</button>
+        <button class="tag" data-group="occlusion" data-value="parcial">Parcial</button>
+      </div>
+      <div class="session-controls">
+        <button id="recordBtn">● Iniciar sesión</button>
+        <span id="sessionCount">0 sesiones</span>
+        <button id="exportBtn" disabled>↓ Exportar CSV</button>
+      </div>
     </section>
 
+    <!-- ── Estado y badge ──────────────────────────────────────────────────── -->
+    <div class="status-bar">
+      <p id="status" class="status">Iniciando…</p>
+      <div id="trackingBadge" class="tracking-badge inactive">Sin detección</div>
+    </div>
+
+    <!-- ── Canvas principal ────────────────────────────────────────────────── -->
     <section class="view-container">
-      <h2>Vista cámara · landmarks · estabilidad</h2>
+      <h2>Vista cámara · landmarks · comparación Pose↔Hands</h2>
       <canvas id="canvas"></canvas>
     </section>
 
+    <!-- ── Leyenda ─────────────────────────────────────────────────────────── -->
     <section class="legend">
-      <div class="legend-item">
-        <span class="dot" style="background:#4D9FFF"></span> Brazo izquierdo
-      </div>
-      <div class="legend-item">
-        <span class="dot" style="background:#FF6464"></span> Brazo derecho
-      </div>
-      <div class="legend-item">
-        <span class="dot" style="background:#FFD700"></span> Dedo índice
-      </div>
-      <div class="legend-item">
-        <span class="ring" style="border-color:#4DFF88"></span> Estable
-      </div>
-      <div class="legend-item">
-        <span class="ring" style="border-color:#FFD700"></span> Moderado
-      </div>
-      <div class="legend-item">
-        <span class="ring" style="border-color:#FF4D4D"></span> Inestable
-      </div>
+      <div class="legend-item"><span class="dot" style="background:#4D9FFF"></span> Brazo izquierdo (Pose)</div>
+      <div class="legend-item"><span class="dot" style="background:#FF6464"></span> Brazo derecho (Pose)</div>
+      <div class="legend-item"><span class="dot" style="background:#FFD700"></span> Dedo índice (Hands)</div>
+      <div class="legend-item"><span class="dot" style="background:#8899ff"></span> Punto Pose</div>
+      <div class="legend-item"><span class="dot" style="background:#ffaa44"></span> Punto Hands</div>
+      <div class="legend-item"><span class="ring" style="border-color:#4DFF88"></span> Estable</div>
+      <div class="legend-item"><span class="ring" style="border-color:#FFD700"></span> Moderado</div>
+      <div class="legend-item"><span class="ring" style="border-color:#FF4D4D"></span> Inestable</div>
     </section>
+
+    <!-- ── Sparklines ─────────────────────────────────────────────────────── -->
+    <section class="sparklines-section">
+      <h3>Historial de jitter — ventana 30 frames</h3>
+      <canvas id="sparklines"></canvas>
+    </section>
+
+    <!-- ── Tablas de métricas ──────────────────────────────────────────────── -->
+    <div class="tables-row">
+
+      <section class="table-section">
+        <h3>Estabilidad de landmarks (Pose)</h3>
+        <table class="metrics-table">
+          <thead>
+            <tr>
+              <th>Landmark</th>
+              <th>Jitter (‰)</th>
+              <th>Visibilidad</th>
+              <th>Continuidad</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody id="statsBody">
+            <tr><td colspan="5" class="empty">Esperando datos…</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="table-section">
+        <h3>Comparativa Pose vs. Hands</h3>
+        <p class="table-note">Línea discontinua en el canvas conecta los dos estimadores para cada punto anatómico</p>
+        <table class="metrics-table">
+          <thead>
+            <tr>
+              <th>Punto anatómico</th>
+              <th>Pose</th>
+              <th>Hands</th>
+              <th>Divergencia</th>
+              <th>Valoración</th>
+            </tr>
+          </thead>
+          <tbody id="compBody">
+            <tr><td colspan="5" class="empty">Esperando datos…</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+    </div>
+
+    <!-- ── Log de sesiones ─────────────────────────────────────────────────── -->
+    <section class="sessions-section">
+      <h3>Sesiones registradas</h3>
+      <div id="sessionLog" class="session-log"></div>
+    </section>
+
   </main>
 
   <video id="video" autoplay playsinline muted style="display:none"></video>
 
-  <!-- Sin OpenCV — solo MediaPipe cargado desde los módulos ES -->
   <script type="module" src="main.js"></script>
 
 </body>
