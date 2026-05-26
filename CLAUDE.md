@@ -50,12 +50,26 @@ src/
       landmarks.js           #   Índices POSE_IDX/HAND_IDX, cadenas, extractDeicticLandmarks()
       stability.js           #   StabilityTracker — ventana 30 frames, jitter + EMA
       renderer.js            #   LandmarkRenderer — esqueleto, índice, anillos, panel
+      comparador.js          #   compareSourceLandmarks() — divergencia Pose vs Hands
+      logger.js              #   SessionLogger — grabación, resumen y exportación CSV
+    heuristica/              # Fase 3 — heurística de pointing deíctico
+      vectores.js            #   Utilidades 2D + extractArmVectors() + computeExtensionAngle()
+      fusion.js              #   fuseVectors() — fusión jerárquica ponderada
+      validacion.js          #   validateGesture() + detectActiveSide()
+      pointing.js            #   PointingEstimator — orquesta todo + suavizado EMA
+      renderer.js            #   PointingRenderer — rayo, vectores componente, panel, sparklines
+      metricas.js            #   AngularTracker — jitter angular, continuidad, distribución modos
+      logger.js              #   PointingSessionLogger — grabación y exportación CSV por sesión
 fase1/
   index.html            # Standalone fase 1
   style.css
   main.js
 fase2/
   index.html            # Standalone fase 2 (sin OpenCV)
+  style.css
+  main.js
+fase3/
+  index.html            # Standalone fase 3 (sin OpenCV)
   style.css
   main.js
 ```
@@ -75,3 +89,15 @@ fase2/
 **Estabilidad:** ventana de 30 frames. Umbrales de jitter (coordenadas normalizadas): < 0.004 → estable (verde), 0.004–0.012 → moderado (amarillo), > 0.012 → inestable (rojo).
 
 **Sistema de coordenadas normalizadas:** origen (0,0) en esquina superior-izquierda del plano rectificado. X crece hacia la derecha, Y hacia abajo. La rejilla 3×3 divide el espacio en: superior/medio/inferior × izquierda/centro/derecha.
+
+**Heurística de pointing — fusión jerárquica:** pesos base shoulderElbow=0.50, shoulderWrist=0.20, elbowWrist=0.15, wristIndex=0.15. Los pesos de vectores no disponibles se redistribuyen automáticamente entre los activos. Modos resultantes: `full` (todos), `partial` (sin índice), `fallback` (solo proximal), `lost` (sin gesto).
+
+**Ángulo de extensión del brazo:** mide el ángulo entre los vectores hombro→codo y codo→muñeca en el plano 2D de imagen. 0° = brazo totalmente extendido (apuntando), >90° = doblado → gesto rechazado. Se calcula con `computeExtensionAngle()` en `vectores.js`. Umbral de validación: `MAX_BEND_ANGLE = 90°` en `validacion.js`.
+
+**Ángulo de pointing:** dirección del vector fusionado en el plano imagen, calculado con `atan2(y, x)` en `metricas.js`. 0° = derecha, ±90° = abajo/arriba, ±180° = izquierda. Es distinto del ángulo de extensión del codo.
+
+**Jitter angular:** variación frame a frame del ángulo de pointing `|Δθ|` en grados, con corrección wrap-around. Umbrales: < 3°/frame → estable, 3–8° → moderado, > 8° → inestable. `AngularTracker` mantiene ventana de 30 frames igual que `StabilityTracker`.
+
+**Suavizado temporal EMA:** `PointingEstimator` aplica α=0.3 sobre el vector fusionado cuando hay gesto activo. Sin gesto, el vector suavizado decae gradualmente (×0.9/frame) en lugar de resetear abruptamente.
+
+**Condición experimental fase 3:** añade campo `heuristic` (nombre de la config, p.ej. `config_base`) a los metadatos de sesión. Permite comparar distintas configuraciones de pesos en el CSV exportado.
