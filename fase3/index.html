@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fase 3 — Heurística de Pointing Deíctico</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <header>
+    <h1>Reconocimiento de Gestos Deícticos</h1>
+    <p class="subtitle">Fase 3 — Heurística de Intención Deíctica en Tiempo Real</p>
+  </header>
+
+  <main>
+
+    <!-- ── Panel de condiciones + sesión ─────────────────────────────────── -->
+    <section class="conditions-panel">
+
+      <div class="condition-group">
+        <span class="condition-label">Heurística</span>
+        <input type="text" id="heuristicName" class="text-input"
+               placeholder="p.ej. config_base" value="config_base" />
+      </div>
+
+      <div class="condition-group">
+        <span class="condition-label">Distancia (m)</span>
+        <input type="number" id="distanceInput" class="distance-input"
+               min="0.1" max="10" step="0.1" value="1.5" />
+      </div>
+
+      <div class="condition-group">
+        <span class="condition-label">Movimiento</span>
+        <button class="tag active" data-group="movement" data-value="lento">Lento</button>
+        <button class="tag"        data-group="movement" data-value="rapido">Rápido</button>
+      </div>
+
+      <div class="condition-group">
+        <span class="condition-label">Oclusión</span>
+        <button class="tag active" data-group="occlusion" data-value="ninguna">Ninguna</button>
+        <button class="tag"        data-group="occlusion" data-value="parcial">Parcial</button>
+      </div>
+
+      <div class="session-controls">
+        <button id="recordBtn">● Iniciar sesión</button>
+        <span   id="sessionCount">0 sesiones</span>
+        <button id="exportBtn" disabled>↓ Exportar CSV</button>
+      </div>
+
+    </section>
+
+    <!-- ── Controles de visualización ────────────────────────────────────── -->
+    <section class="controls-panel">
+      <div class="control-group">
+        <span class="control-label">Brazo activo</span>
+        <button class="tag active" data-group="side" data-value="auto">Auto</button>
+        <button class="tag"        data-group="side" data-value="Right">Derecho</button>
+        <button class="tag"        data-group="side" data-value="Left">Izquierdo</button>
+      </div>
+      <div class="control-group">
+        <span class="control-label">Vectores</span>
+        <button class="tag active" id="toggleVectors" data-on="true">Mostrar</button>
+      </div>
+      <div class="control-group">
+        <span class="control-label">Ángulo</span>
+        <button class="tag active" id="toggleAngle" data-on="true">Mostrar</button>
+      </div>
+    </section>
+
+    <!-- ── Estado ─────────────────────────────────────────────────────────── -->
+    <div class="status-bar">
+      <p   id="status"       class="status">Iniciando…</p>
+      <div id="trackingBadge" class="tracking-badge inactive">Sin detección</div>
+      <div id="fpsBadge"      class="fps-badge">— FPS</div>
+      <div id="modeBadge"     class="mode-badge lost">—</div>
+    </div>
+
+    <!-- ── Canvas principal ──────────────────────────────────────────────── -->
+    <section class="view-container">
+      <h2>Vista cámara · landmarks · vector de pointing</h2>
+      <canvas id="canvas"></canvas>
+    </section>
+
+    <!-- ── Leyenda ────────────────────────────────────────────────────────── -->
+    <section class="legend">
+      <div class="legend-item"><span class="dot" style="background:#4DFF88"></span> Full (todos los vectores)</div>
+      <div class="legend-item"><span class="dot" style="background:#FFD700"></span> Partial (sin índice)</div>
+      <div class="legend-item"><span class="dot" style="background:#FF8C4D"></span> Fallback (solo hombro→codo)</div>
+      <div class="legend-item"><span class="dot" style="background:#FF4D4D"></span> Lost / sin gesto</div>
+      <div class="legend-item"><span class="dot" style="background:#4D9FFF"></span> Vector hombro→codo</div>
+      <div class="legend-item"><span class="dot" style="background:#FFD700"></span> Vector muñeca→índice</div>
+    </section>
+
+    <!-- ── Sparklines angulares ───────────────────────────────────────────── -->
+    <section class="sparklines-section">
+      <h3>Historial angular — ventana 30 frames</h3>
+      <canvas id="sparklines"></canvas>
+    </section>
+
+    <!-- ── Tablas de métricas ─────────────────────────────────────────────── -->
+    <div class="tables-row">
+
+      <section class="table-section">
+        <h3>Métricas de pointing en tiempo real</h3>
+        <table class="metrics-table">
+          <thead>
+            <tr>
+              <th>Parámetro</th>
+              <th>Valor</th>
+              <th>Descripción</th>
+            </tr>
+          </thead>
+          <tbody id="metricsBody">
+            <tr><td colspan="3" class="empty">Esperando datos…</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="table-section">
+        <h3>Pesos de fusión jerárquica</h3>
+        <p class="table-note">Redistribuidos automáticamente según visibilidad y disponibilidad</p>
+        <table class="metrics-table">
+          <thead>
+            <tr>
+              <th>Vector</th>
+              <th>Peso activo</th>
+              <th>Base</th>
+              <th>Activo</th>
+            </tr>
+          </thead>
+          <tbody id="weightsBody">
+            <tr><td colspan="4" class="empty">Esperando datos…</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+    </div>
+
+    <!-- ── Log de sesiones ────────────────────────────────────────────────── -->
+    <section class="sessions-section">
+      <h3>Sesiones registradas</h3>
+      <div id="sessionLog" class="session-log"></div>
+    </section>
+
+  </main>
+
+  <video id="video" autoplay playsinline muted style="display:none"></video>
+  <script type="module" src="main.js"></script>
+</body>
+</html>
