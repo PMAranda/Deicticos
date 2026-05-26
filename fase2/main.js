@@ -2,12 +2,13 @@ import { CameraModule }       from '../src/modules/homografia/camera.js';
 import { PoseEstimator }      from '../src/modules/estimacion_corporal/pose.js';
 import { HandEstimator }      from '../src/modules/estimacion_corporal/hands.js';
 import { LandmarkRenderer }   from '../src/modules/estimacion_corporal/renderer.js';
-import { StabilityTracker }   from '../src/modules/estimacion_corporal/stability.js';
+import { StabilityTracker, FPSTracker } from '../src/modules/estimacion_corporal/stability.js';
 import { SessionLogger }      from '../src/modules/estimacion_corporal/logger.js';
 import { compareSourceLandmarks } from '../src/modules/estimacion_corporal/comparador.js';
 import {
   extractDeicticLandmarks,
   STABILITY_KEYS,
+  SOURCE_LABEL,
 } from '../src/modules/estimacion_corporal/landmarks.js';
 
 // ── Constantes ────────────────────────────────────────────────────────────────
@@ -16,7 +17,7 @@ const SPARKLINE_H = 140;
 
 // Condición experimental por defecto
 const DEFAULT_CONDITION = {
-  distance:  'media',
+  distance:  '1.5',   // metros
   lighting:  'normal',
   movement:  'lento',
   occlusion: 'ninguna',
@@ -32,6 +33,7 @@ class Fase2App {
     this.sparkCanvas    = document.getElementById('sparklines');
     this.statusEl       = document.getElementById('status');
     this.badgeEl        = document.getElementById('trackingBadge');
+    this.fpsBadgeEl     = document.getElementById('fpsBadge');
     this.recordBtn      = document.getElementById('recordBtn');
     this.exportBtn      = document.getElementById('exportBtn');
     this.sessionCountEl = document.getElementById('sessionCount');
@@ -48,6 +50,7 @@ class Fase2App {
     this.hands     = new HandEstimator();
     this.renderer  = new LandmarkRenderer();
     this.stability = new StabilityTracker(30);
+    this.fpsTracker = new FPSTracker(60);
     this.logger    = new SessionLogger();
 
     // ── Estado ───────────────────────────────────────────────────────────────
@@ -86,6 +89,7 @@ class Fase2App {
 
   _loop() {
     requestAnimationFrame(() => this._loop());
+    this.fpsTracker.tick();
     const now = performance.now();
 
     this.ctx.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
@@ -108,7 +112,7 @@ class Fase2App {
 
     // Grabación de sesión
     if (this.logger.isRecording) {
-      this.logger.recordFrame(allMetrics, comparisons);
+      this.logger.recordFrame(allMetrics, comparisons, this.fpsTracker.fps);
     }
 
     // ── Dibujo sobre canvas principal ─────────────────────────────────────
@@ -118,26 +122,43 @@ class Fase2App {
     this.renderer.drawStabilityRings(this.ctx, pose, this.stability, W, H);
     this.renderer.drawStabilityPanel(this.ctx, allMetrics);
     this.renderer.drawComparisonLines(this.ctx, comparisons, W, H);
+    this.renderer.drawFPS(this.ctx, this.fpsTracker.fps, W);
 
     // ── Sparklines ────────────────────────────────────────────────────────
     this.renderer.drawSparklines(this.sparkCtx, this.stability, this.sparkCanvas.width, SPARKLINE_H);
 
     // ── UI ────────────────────────────────────────────────────────────────
     this._updateBadge(pose, hands);
+    this._updateFpsBadge();
     this._updateStatsTable(allMetrics);
     this._updateComparisonTable(comparisons);
+  }
+
+  _updateFpsBadge() {
+    if (!this.fpsBadgeEl) return;
+    const fps = this.fpsTracker.fps;
+    this.fpsBadgeEl.textContent = `${fps.toFixed(1)} FPS`;
+    this.fpsBadgeEl.className   = `fps-badge ${fps >= 25 ? 'good' : fps >= 15 ? 'warn' : 'bad'}`;
   }
 
   // ── Condición experimental ────────────────────────────────────────────────
 
   _bindConditionButtons() {
+    // Input numérico de distancia
+    const distInput = document.getElementById('distanceInput');
+    if (distInput) {
+      this.condition.distance = distInput.value;
+      distInput.addEventListener('input', () => {
+        this.condition.distance = distInput.value;
+      });
+    }
+
+    // Botones de tipo tag para el resto de condiciones
     document.querySelectorAll('.tag').forEach(btn => {
       btn.addEventListener('click', () => {
         const group = btn.dataset.group;
         const value = btn.dataset.value;
         this.condition[group] = value;
-
-        // Toggle activo en el grupo
         document.querySelectorAll(`.tag[data-group="${group}"]`)
           .forEach(b => b.classList.toggle('active', b === btn));
       });
@@ -189,12 +210,24 @@ class Fase2App {
 
   _updateStatsTable(allMetrics) {
     if (!this.statsBodyEl) return;
+
+    // Construir lookup source por clave
+    const sourceMap = Object.fromEntries(STABILITY_KEYS.map(({ key, source }) => [key, source]));
+
     const rows = Object.entries(allMetrics).map(([key, m]) => {
-      const dot = `<span class="level-dot" style="background:${this._levelColor(m.level)}"></span>`;
+      const dot        = `<span class="level-dot" style="background:${this._levelColor(m.level)}"></span>`;
+      const sourceStr  = SOURCE_LABEL[sourceMap[key] ?? 'pose'];
+      const lossColor  = m.trackingLoss > 20 ? '#FF4D4D' : m.trackingLoss > 5 ? '#FFD700' : '#4DFF88';
+      const lossStr    = `<span style="color:${lossColor}">${m.trackingLoss.toFixed(1)}%</span>`;
+      const sourceBadge = sourceMap[key] === 'both'
+        ? `<span class="source-badge both">${sourceStr}</span>`
+        : `<span class="source-badge pose">${sourceStr}</span>`;
       return `<tr>
         <td>${key}</td>
+        <td>${sourceBadge}</td>
         <td>${(m.jitter * 1000).toFixed(2)}</td>
         <td>${(m.meanVisibility * 100).toFixed(0)}%</td>
+        <td>${lossStr}</td>
         <td>${m.continuity}</td>
         <td>${dot} ${m.level}</td>
       </tr>`;
@@ -244,6 +277,7 @@ class Fase2App {
       </div>
       <div class="session-detail">
         ${summary.frameCount} frames · ${summary.durationMs}ms ·
+        FPS medio: <strong>${summary.avgFps.toFixed(1)}</strong> ·
         Landmark más estable: <strong>${best}</strong>
       </div>
     `;

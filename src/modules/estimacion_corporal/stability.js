@@ -18,22 +18,27 @@ export const LEVEL_COLOR = Object.freeze({
 export class StabilityTracker {
   /** @param {number} windowSize - Frames en la ventana deslizante */
   constructor(windowSize = 30) {
-    this.windowSize  = windowSize;
-    this._history    = new Map();  // key → [{x, y, visibility}]
-    this._continuity = new Map();  // key → número de frames consecutivos detectados
+    this.windowSize      = windowSize;
+    this._history        = new Map();  // key → [{x, y, visibility}]
+    this._continuity     = new Map();  // key → frames consecutivos detectados
+    this._totalFrames    = new Map();  // key → total de frames en que se llamó update()
+    this._detectedFrames = new Map();  // key → frames con landmark válido
   }
 
   /**
    * Registra la posición de un landmark en el frame actual.
-   * Pasar null o un landmark con visibilidad muy baja resetea la continuidad.
-   * @param {string} key
-   * @param {{ x: number, y: number, visibility?: number } | null} landmark
+   * Llamar con null cuando el landmark no se detecta (resetea continuidad y
+   * contabiliza el frame como pérdida).
    */
   update(key, landmark) {
+    this._totalFrames.set(key, (this._totalFrames.get(key) ?? 0) + 1);
+
     if (!landmark || (landmark.visibility ?? 1) < 0.1) {
       this._continuity.set(key, 0);
       return;
     }
+
+    this._detectedFrames.set(key, (this._detectedFrames.get(key) ?? 0) + 1);
 
     if (!this._history.has(key)) this._history.set(key, []);
     const buf = this._history.get(key);
@@ -44,13 +49,23 @@ export class StabilityTracker {
   }
 
   /**
-   * Métricas de estabilidad calculadas sobre la ventana acumulada.
-   * @returns {{ jitter, meanVisibility, level, sampleCount, continuity }}
+   * Métricas completas sobre la ventana acumulada.
+   * @returns {{
+   *   jitter: number, meanVisibility: number, level: string,
+   *   sampleCount: number, continuity: number, trackingLoss: number
+   * }}
    */
   getMetrics(key) {
+    const total        = this._totalFrames.get(key)    ?? 0;
+    const detected     = this._detectedFrames.get(key) ?? 0;
+    const trackingLoss = total > 0 ? ((total - detected) / total) * 100 : 0;
+
     const buf = this._history.get(key);
     if (!buf || buf.length < 2) {
-      return { jitter: 0, meanVisibility: 0, level: 'stable', sampleCount: 0, continuity: 0 };
+      return {
+        jitter: 0, meanVisibility: 0, level: 'stable',
+        sampleCount: 0, continuity: 0, trackingLoss,
+      };
     }
 
     let jitterSum = 0;
@@ -65,14 +80,15 @@ export class StabilityTracker {
     return {
       jitter,
       meanVisibility,
-      level:       jitterLevel(jitter),
-      sampleCount: buf.length,
-      continuity:  this._continuity.get(key) ?? 0,
+      level:        jitterLevel(jitter),
+      sampleCount:  buf.length,
+      continuity:   this._continuity.get(key) ?? 0,
+      trackingLoss,
     };
   }
 
   /**
-   * Posición suavizada del landmark mediante EMA sobre la ventana.
+   * Posición suavizada mediante EMA sobre la ventana.
    * @returns {{ x: number, y: number } | null}
    */
   getSmoothed(key, alpha = 0.35) {
@@ -87,8 +103,8 @@ export class StabilityTracker {
   }
 
   /**
-   * Historial de jitter frame a frame para dibujar sparklines.
-   * @returns {number[]} - distancias euclídeas entre frames consecutivos
+   * Historial de jitter frame a frame para los sparklines.
+   * @returns {number[]}
    */
   getJitterHistory(key) {
     const buf = this._history.get(key);
@@ -102,10 +118,10 @@ export class StabilityTracker {
     return result;
   }
 
-  /** Snapshot de todas las métricas activas (para la UI y el logger). */
+  /** Snapshot de todas las métricas activas. */
   getAllMetrics() {
     const result = {};
-    for (const key of this._history.keys()) {
+    for (const key of this._totalFrames.keys()) {
       result[key] = this.getMetrics(key);
     }
     return result;
@@ -114,5 +130,32 @@ export class StabilityTracker {
   clear() {
     this._history.clear();
     this._continuity.clear();
+    this._totalFrames.clear();
+    this._detectedFrames.clear();
+  }
+}
+
+// ── FPS Tracker ───────────────────────────────────────────────────────────────
+
+export class FPSTracker {
+  /**
+   * @param {number} windowSize - Número de frames para el promedio deslizante
+   */
+  constructor(windowSize = 60) {
+    this.windowSize  = windowSize;
+    this._timestamps = [];
+  }
+
+  /** Llamar una vez por frame al inicio del loop. */
+  tick() {
+    this._timestamps.push(performance.now());
+    if (this._timestamps.length > this.windowSize) this._timestamps.shift();
+  }
+
+  /** FPS promedio sobre la ventana actual. */
+  get fps() {
+    if (this._timestamps.length < 2) return 0;
+    const elapsed = this._timestamps.at(-1) - this._timestamps[0];
+    return ((this._timestamps.length - 1) / elapsed) * 1000;
   }
 }

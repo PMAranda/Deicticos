@@ -18,10 +18,9 @@
     <!-- ── Condición experimental ──────────────────────────────────────────── -->
     <section class="conditions-panel">
       <div class="condition-group">
-        <span class="condition-label">Distancia</span>
-        <button class="tag" data-group="distance" data-value="cerca">Cerca</button>
-        <button class="tag active" data-group="distance" data-value="media">Media</button>
-        <button class="tag" data-group="distance" data-value="lejos">Lejos</button>
+        <span class="condition-label">Distancia (m)</span>
+        <input type="number" id="distanceInput" class="distance-input"
+               min="0.1" max="10" step="0.1" value="1.5" />
       </div>
       <div class="condition-group">
         <span class="condition-label">Iluminación</span>
@@ -50,6 +49,7 @@
     <div class="status-bar">
       <p id="status" class="status">Iniciando…</p>
       <div id="trackingBadge" class="tracking-badge inactive">Sin detección</div>
+      <div id="fpsBadge" class="fps-badge">— FPS</div>
     </div>
 
     <!-- ── Canvas principal ────────────────────────────────────────────────── -->
@@ -85,8 +85,10 @@
           <thead>
             <tr>
               <th>Landmark</th>
+              <th>Detector</th>
               <th>Jitter (‰)</th>
               <th>Visibilidad</th>
+              <th>Lost %</th>
               <th>Continuidad</th>
               <th>Estado</th>
             </tr>

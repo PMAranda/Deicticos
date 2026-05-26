@@ -38,15 +38,26 @@ export const INDEX_CHAIN = [
   HAND_IDX.INDEX_TIP,
 ];
 
-// Landmarks de pose cuya estabilidad se monitoriza activamente
+/**
+ * Landmarks de pose cuya estabilidad se monitoriza activamente.
+ * source:
+ *   'pose'  → solo MediaPipe Pose puede estimarlo
+ *   'both'  → también disponible en MediaPipe Hands (permite comparar robustez)
+ */
 export const STABILITY_KEYS = [
-  { key: 'L_SHOULDER', idx: POSE_IDX.LEFT_SHOULDER  },
-  { key: 'R_SHOULDER', idx: POSE_IDX.RIGHT_SHOULDER },
-  { key: 'L_ELBOW',    idx: POSE_IDX.LEFT_ELBOW     },
-  { key: 'R_ELBOW',    idx: POSE_IDX.RIGHT_ELBOW    },
-  { key: 'L_WRIST',    idx: POSE_IDX.LEFT_WRIST     },
-  { key: 'R_WRIST',    idx: POSE_IDX.RIGHT_WRIST    },
+  { key: 'L_SHOULDER', idx: POSE_IDX.LEFT_SHOULDER,  source: 'pose' },
+  { key: 'R_SHOULDER', idx: POSE_IDX.RIGHT_SHOULDER, source: 'pose' },
+  { key: 'L_ELBOW',    idx: POSE_IDX.LEFT_ELBOW,     source: 'pose' },
+  { key: 'R_ELBOW',    idx: POSE_IDX.RIGHT_ELBOW,    source: 'pose' },
+  { key: 'L_WRIST',    idx: POSE_IDX.LEFT_WRIST,     source: 'both' },
+  { key: 'R_WRIST',    idx: POSE_IDX.RIGHT_WRIST,    source: 'both' },
 ];
+
+export const SOURCE_LABEL = Object.freeze({
+  pose:  'Pose',
+  hands: 'Hands',
+  both:  'Pose + Hands',
+});
 
 /**
  * Empaqueta los landmarks relevantes de los resultados de pose y manos.

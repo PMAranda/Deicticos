@@ -28,11 +28,13 @@ export class SessionLogger {
    * Registra el estado de un frame.
    * @param {Object} metrics     - resultado de stabilityTracker.getAllMetrics()
    * @param {Array}  comparisons - resultado de compareSourceLandmarks()
+   * @param {number} fps         - FPS actual del loop (FPSTracker.fps)
    */
-  recordFrame(metrics, comparisons) {
+  recordFrame(metrics, comparisons, fps = 0) {
     if (!this._current) return;
     this._current.frames.push({
       t:           Math.round(performance.now() - this._current.startTime),
+      fps,
       metrics:     this._snapshotMetrics(metrics),
       comparisons: comparisons.map(c => ({
         id:       c.id,
@@ -67,8 +69,8 @@ export class SessionLogger {
   exportCSV() {
     const header = [
       'Sesión', 'Distancia', 'Iluminación', 'Movimiento', 'Oclusión',
-      'Frames', 'Duración(ms)',
-      'Landmark', 'JitterMedio(‰)', 'Visibilidad(%)', 'Continuidad',
+      'Frames', 'Duración(ms)', 'FPSMedio',
+      'Landmark', 'JitterMedio(‰)', 'Visibilidad(%)', 'Continuidad', 'TrackingLost(%)',
     ].join(',');
 
     const rows = [header];
@@ -80,10 +82,12 @@ export class SessionLogger {
           cond.distance, cond.lighting, cond.movement, cond.occlusion,
           s.summary.frameCount,
           s.summary.durationMs,
+          s.summary.avgFps.toFixed(1),
           key,
           (m.avgJitter * 1000).toFixed(2),
           (m.avgVisibility * 100).toFixed(1),
           m.avgContinuity.toFixed(0),
+          m.avgTrackingLoss !== undefined ? m.avgTrackingLoss.toFixed(1) : '',
         ].join(','));
       });
     });
@@ -112,10 +116,12 @@ export class SessionLogger {
       const jitters     = frames.map(f => f.metrics[key]?.jitter         ?? 0);
       const vis         = frames.map(f => f.metrics[key]?.meanVisibility  ?? 0);
       const conts       = frames.map(f => f.metrics[key]?.continuity      ?? 0);
+      const losses = frames.map(f => f.metrics[key]?.trackingLoss ?? 0);
       avgStability[key] = {
-        avgJitter:      jitters.reduce((a, b) => a + b, 0) / jitters.length,
-        avgVisibility:  vis.reduce((a, b) => a + b, 0)     / vis.length,
-        avgContinuity:  conts.reduce((a, b) => a + b, 0)   / conts.length,
+        avgJitter:        jitters.reduce((a, b) => a + b, 0) / jitters.length,
+        avgVisibility:    vis.reduce((a, b) => a + b, 0)     / vis.length,
+        avgContinuity:    conts.reduce((a, b) => a + b, 0)   / conts.length,
+        avgTrackingLoss:  losses.reduce((a, b) => a + b, 0)  / losses.length,
       };
     });
 
@@ -131,10 +137,16 @@ export class SessionLogger {
       }
     });
 
+    const fpsValues = frames.map(f => f.fps ?? 0).filter(v => v > 0);
+    const avgFps    = fpsValues.length > 0
+      ? fpsValues.reduce((a, b) => a + b, 0) / fpsValues.length
+      : 0;
+
     return {
       condition,
-      frameCount:  frames.length,
-      durationMs:  frames.at(-1)?.t ?? 0,
+      frameCount:   frames.length,
+      durationMs:   frames.at(-1)?.t ?? 0,
+      avgFps,
       avgStability,
       avgDivergence,
     };

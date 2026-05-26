@@ -111,6 +111,32 @@ export class LandmarkRenderer {
     });
   }
 
+  // ── Badge de FPS ────────────────────────────────────────────────────────────
+
+  /**
+   * Dibuja el FPS actual en la esquina superior derecha del canvas.
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {number} fps
+   * @param {number} canvasW
+   */
+  drawFPS(ctx, fps, canvasW) {
+    const text = `${fps.toFixed(1)} FPS`;
+    const PAD  = 8;
+
+    ctx.save();
+    ctx.font = 'bold 12px monospace';
+    const tw = ctx.measureText(text).width;
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.60)';
+    ctx.beginPath();
+    ctx.roundRect(canvasW - tw - PAD * 2 - 10, 10, tw + PAD * 2, 24, 4);
+    ctx.fill();
+
+    ctx.fillStyle = fps >= 25 ? '#4DFF88' : fps >= 15 ? '#FFD700' : '#FF4D4D';
+    ctx.fillText(text, canvasW - tw - PAD - 10, 27);
+    ctx.restore();
+  }
+
   // ── Panel de estabilidad (overlay sobre el canvas principal) ────────────────
 
   drawStabilityPanel(ctx, allMetrics) {
@@ -234,10 +260,15 @@ export class LandmarkRenderer {
         x0 + PAD, y0 + PAD + 25
       );
 
-      // Continuidad
+      // Continuidad y tracking loss
       ctx.fillStyle = '#555';
       ctx.font      = '10px monospace';
-      ctx.fillText(`cont: ${metrics.continuity}f`, x0 + cellW - PAD - 55, y0 + PAD + 10);
+      const lossColor = metrics.trackingLoss > 20 ? '#FF4D4D'
+                      : metrics.trackingLoss > 5  ? '#FFD700' : '#555';
+      ctx.fillStyle = lossColor;
+      ctx.fillText(`lost: ${metrics.trackingLoss.toFixed(0)}%`, x0 + cellW - PAD - 62, y0 + PAD + 10);
+      ctx.fillStyle = '#555';
+      ctx.fillText(`cont: ${metrics.continuity}f`,              x0 + cellW - PAD - 62, y0 + PAD + 22);
 
       if (history.length < 2) return;
 
