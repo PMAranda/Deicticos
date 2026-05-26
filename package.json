@@ -1,0 +1,8 @@
+{
+  "name": "deicticos",
+  "version": "0.1.0",
+  "description": "Reconocimiento de Gestos Deícticos y Referencias Espaciales en Tiempo Real — TFM",
+  "scripts": {
+    "dev": "npx http-server . -p 8080 --cors -o"
+  }
+}
