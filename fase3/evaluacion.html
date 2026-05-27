@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Evaluación — Heurística de Pointing Deíctico</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="evaluacion.css" />
+</head>
+<body>
+
+  <header>
+    <h1>Evaluación de Pointing Deíctico</h1>
+    <p class="subtitle">Fase 3 — Análisis sobre vídeo o imagen subida</p>
+    <nav class="eval-nav">
+      <a href="index.html" class="nav-link">← Modo cámara en vivo</a>
+    </nav>
+  </header>
+
+  <main>
+
+    <!-- ── Panel de condiciones ───────────────────────────────────────────── -->
+    <section class="conditions-panel">
+      <div class="condition-group">
+        <span class="condition-label">Heurística</span>
+        <input type="text" id="heuristicName" class="text-input"
+               placeholder="p.ej. config_base" value="config_base" />
+      </div>
+      <div class="condition-group">
+        <span class="condition-label">Distancia (m)</span>
+        <input type="number" id="distanceInput" class="distance-input"
+               min="0.1" max="10" step="0.1" value="1.5" />
+      </div>
+      <div class="condition-group">
+        <span class="condition-label">Movimiento</span>
+        <button class="tag active" data-group="movement" data-value="lento">Lento</button>
+        <button class="tag"        data-group="movement" data-value="rapido">Rápido</button>
+      </div>
+      <div class="condition-group">
+        <span class="condition-label">Oclusión</span>
+        <button class="tag active" data-group="occlusion" data-value="ninguna">Ninguna</button>
+        <button class="tag"        data-group="occlusion" data-value="parcial">Parcial</button>
+      </div>
+      <div class="condition-group">
+        <span class="condition-label">Brazo activo</span>
+        <button class="tag active" data-group="side" data-value="auto">Auto</button>
+        <button class="tag"        data-group="side" data-value="Right">Derecho</button>
+        <button class="tag"        data-group="side" data-value="Left">Izquierdo</button>
+      </div>
+    </section>
+
+    <!-- ── Zona de subida ─────────────────────────────────────────────────── -->
+    <section id="dropZone" class="drop-zone">
+      <div class="drop-icon">↑</div>
+      <p class="drop-label">Arrastra un vídeo o imagen aquí</p>
+      <p class="drop-hint">o haz clic · MP4, MOV, WebM, JPG, PNG…</p>
+      <input type="file" id="fileInput" accept="video/*,image/*" style="display:none" />
+    </section>
+
+    <!-- ── Barra de fuente ────────────────────────────────────────────────── -->
+    <div id="sourceBar" class="source-bar" style="display:none">
+      <span id="fileTypeTag" class="source-type-tag">VÍDEO</span>
+      <span id="fileName"    class="source-name">—</span>
+      <span id="fileDuration" class="source-duration">—</span>
+      <span id="frameInfo"   class="source-frame">—</span>
+      <button id="reloadBtn" class="reload-btn">✕ Cambiar archivo</button>
+    </div>
+
+    <!-- ── Estado ─────────────────────────────────────────────────────────── -->
+    <div class="status-bar">
+      <p   id="status"        class="status">Iniciando…</p>
+      <div id="trackingBadge" class="tracking-badge inactive">Sin detección</div>
+      <div id="fpsBadge"      class="fps-badge">— FPS</div>
+      <div id="modeBadge"     class="mode-badge lost">—</div>
+    </div>
+
+    <!-- ── Canvas principal ──────────────────────────────────────────────── -->
+    <section class="view-container">
+      <h2>Visualización · landmarks · vector de pointing</h2>
+      <canvas id="canvas"></canvas>
+
+      <!-- Controles de reproducción (solo vídeo) -->
+      <div id="videoControls" class="video-controls" style="display:none">
+        <button id="playBtn"  class="play-btn">▶ Play</button>
+        <input  type="range"  id="seekBar" min="0" max="1000" value="0" step="1" class="seek-bar" />
+        <span   id="timeDisplay" class="time-display">0:00 / 0:00</span>
+        <select id="speedSelect" class="speed-select">
+          <option value="0.25">0.25×</option>
+          <option value="0.5">0.5×</option>
+          <option value="1" selected>1×</option>
+          <option value="2">2×</option>
+        </select>
+        <button id="stepBtn" class="step-btn">+1 Frame</button>
+      </div>
+    </section>
+
+    <!-- ── Leyenda ────────────────────────────────────────────────────────── -->
+    <section class="legend">
+      <div class="legend-item"><span class="dot" style="background:#4DFF88"></span> Full (todos los vectores)</div>
+      <div class="legend-item"><span class="dot" style="background:#FFD700"></span> Partial (sin índice)</div>
+      <div class="legend-item"><span class="dot" style="background:#FF8C4D"></span> Fallback (solo hombro→codo)</div>
+      <div class="legend-item"><span class="dot" style="background:#FF4D4D"></span> Sin gesto</div>
+    </section>
+
+    <!-- ── Timeline (solo vídeo) ─────────────────────────────────────────── -->
+    <section id="timelineSection" class="timeline-section" style="display:none">
+      <h3>Timeline de detección</h3>
+      <canvas id="timeline"></canvas>
+      <div class="timeline-legend">
+        <span style="color:#4DFF88">— full</span>
+        <span style="color:#FFD700">— partial</span>
+        <span style="color:#FF8C4D">— fallback</span>
+        <span style="color:#555">— lost</span>
+        <span style="color:#888">· línea blanca = posición actual</span>
+      </div>
+    </section>
+
+    <!-- ── Sparklines angulares ───────────────────────────────────────────── -->
+    <section class="sparklines-section">
+      <h3>Historial angular — ventana 30 frames</h3>
+      <canvas id="sparklines"></canvas>
+    </section>
+
+    <!-- ── Tablas de métricas ─────────────────────────────────────────────── -->
+    <div class="tables-row">
+
+      <section class="table-section">
+        <h3>Métricas en tiempo real</h3>
+        <table class="metrics-table">
+          <thead>
+            <tr><th>Parámetro</th><th>Valor</th></tr>
+          </thead>
+          <tbody id="metricsBody">
+            <tr><td colspan="2" class="empty">Esperando datos…</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="table-section">
+        <h3>Pesos de fusión jerárquica</h3>
+        <p class="table-note">Redistribuidos según disponibilidad</p>
+        <table class="metrics-table">
+          <thead>
+            <tr><th>Vector</th><th>Peso activo</th><th>Base</th><th>Activo</th></tr>
+          </thead>
+          <tbody id="weightsBody">
+            <tr><td colspan="4" class="empty">Esperando datos…</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+    </div>
+
+    <!-- ── Resumen de evaluación ──────────────────────────────────────────── -->
+    <section id="summarySection" class="summary-eval-section" style="display:none">
+      <h3>Resumen de evaluación</h3>
+      <table class="metrics-table summary-table">
+        <thead>
+          <tr><th>Métrica</th><th>Valor</th></tr>
+        </thead>
+        <tbody id="summaryBody"></tbody>
+      </table>
+      <div class="summary-actions">
+        <button id="exportBtn" class="export-summary-btn" disabled>↓ Exportar CSV</button>
+      </div>
+    </section>
+
+  </main>
+
+  <video id="video" playsinline muted style="display:none"></video>
+  <script type="module" src="evaluacion_main.js"></script>
+</body>
+</html>

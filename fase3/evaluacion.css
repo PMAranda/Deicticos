@@ -1,0 +1,260 @@
+/* ── Navegación ────────────────────────────────────────────────────────────── */
+.eval-nav {
+  margin-top: 0.5rem;
+}
+
+.nav-link {
+  font-size: 0.8rem;
+  color: #5050a0;
+  text-decoration: none;
+  letter-spacing: 0.04em;
+  transition: color 0.15s;
+}
+.nav-link:hover { color: #9ab4f5; }
+
+/* ── Zona de subida ────────────────────────────────────────────────────────── */
+.drop-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 2px dashed #2a2a4e;
+  border-radius: 10px;
+  padding: 2.5rem 1.5rem;
+  margin-bottom: 0.85rem;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  background: #0d0d1a;
+  min-height: 160px;
+}
+.drop-zone:hover,
+.drop-zone.dragover {
+  border-color: #4f8ef7;
+  background: rgba(79,142,247,0.05);
+}
+
+.drop-icon {
+  font-size: 2.5rem;
+  color: #2a2a5e;
+  line-height: 1;
+}
+.drop-label {
+  font-size: 1rem;
+  color: #9ab4f5;
+  font-weight: 500;
+}
+.drop-hint {
+  font-size: 0.78rem;
+  color: #444;
+}
+
+/* ── Barra de fuente ───────────────────────────────────────────────────────── */
+.source-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  background: #161625;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  padding: 0.55rem 0.9rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.82rem;
+}
+
+.source-type-tag {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 0.15rem 0.55rem;
+  border-radius: 12px;
+  background: rgba(79,142,247,0.15);
+  color: #9ab4f5;
+  border: 1px solid rgba(79,142,247,0.3);
+  white-space: nowrap;
+}
+
+.source-name {
+  color: #c0c0d0;
+  font-weight: 500;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 320px;
+}
+
+.source-duration {
+  color: #5050a0;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.source-frame {
+  color: #5050a0;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.reload-btn {
+  margin-left: auto;
+  padding: 0.25rem 0.65rem;
+  background: transparent;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #666;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.reload-btn:hover { border-color: #555; color: #999; }
+
+/* ── Controles de reproducción ─────────────────────────────────────────────── */
+.video-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  padding: 0.55rem 0.25rem 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+.play-btn {
+  padding: 0.35rem 0.9rem;
+  background: #1e3a1e;
+  border: 1px solid #3a6a3a;
+  border-radius: 6px;
+  color: #7eef7e;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.play-btn:hover { background: #264826; }
+
+.seek-bar {
+  flex: 1;
+  min-width: 120px;
+  height: 4px;
+  accent-color: #4f8ef7;
+  cursor: pointer;
+}
+
+.time-display {
+  font-size: 0.8rem;
+  color: #6060a0;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.speed-select {
+  padding: 0.25rem 0.4rem;
+  background: #1a1a2e;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #9ab4f5;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.step-btn {
+  padding: 0.25rem 0.65rem;
+  background: transparent;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #666;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s;
+}
+.step-btn:hover { border-color: #555; color: #aaa; }
+
+/* ── Timeline ──────────────────────────────────────────────────────────────── */
+.timeline-section {
+  margin-bottom: 0.85rem;
+}
+
+.timeline-section h3 {
+  font-size: 0.8rem;
+  color: #5050a0;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.35rem;
+}
+
+#timeline {
+  border-radius: 4px;
+  border: 1px solid #2a2a3e;
+  display: block;
+  max-width: 100%;
+  background: #0d0d1a;
+}
+
+.timeline-legend {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.75rem;
+  margin-top: 0.3rem;
+  flex-wrap: wrap;
+}
+
+/* ── Resumen de evaluación ─────────────────────────────────────────────────── */
+.summary-eval-section {
+  margin-bottom: 2rem;
+  border: 1px solid #2a4a2a;
+  border-radius: 8px;
+  background: #0d1a0d;
+  padding: 1rem 1.1rem;
+}
+
+.summary-eval-section h3 {
+  font-size: 0.82rem;
+  color: #4DFF88;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 0.75rem;
+}
+
+.summary-table {
+  margin-bottom: 0.85rem;
+}
+
+.summary-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.export-summary-btn {
+  padding: 0.45rem 1.1rem;
+  background: #1e3a1e;
+  border: 1px solid #3a7a3a;
+  border-radius: 6px;
+  color: #7eef7e;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+.export-summary-btn:hover:not(:disabled) { background: #264826; }
+.export-summary-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* ── Ajuste del panel de condiciones en modo eval (sin controles de sesión) ── */
+.conditions-panel .condition-group {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.condition-label {
+  font-size: 0.78rem;
+  color: #5050a0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
