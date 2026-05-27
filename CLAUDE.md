@@ -94,6 +94,11 @@ fase3/
 
 **Ángulo de extensión del brazo:** mide el ángulo entre los vectores hombro→codo y codo→muñeca en el plano 2D de imagen. 0° = brazo totalmente extendido (apuntando), >90° = doblado → gesto rechazado. Se calcula con `computeExtensionAngle()` en `vectores.js`. Umbral de validación: `MAX_BEND_ANGLE = 90°` en `validacion.js`.
 
+**Restricciones adicionales de validación (falsos positivos):** el ángulo de extensión solo mide linealidad, no dirección — un brazo colgando hacia abajo también tiene extensionAngle ≈ 0° y generaba falsos positivos. `validateGesture()` aplica dos restricciones extra:
+- *Orientación global* (`MIN_ANGLE_FROM_DOWN = 30°`): el vector hombro→muñeca (o hombro→codo si la muñeca no es visible) debe desviarse al menos 30° de la dirección vertical-abajo `{0,1}`. Razón de rechazo: `'brazo_colgante'`.
+- *Alcance mínimo* (`MIN_WRIST_REACH = 0.12`): distancia hombro-muñeca en coords normalizadas debe superar 0.12. Solo se comprueba cuando la muñeca tiene visibilidad ≥ 0.3. Razón de rechazo: `'muneca_muy_cerca'`.
+La confidencia incorpora un tercer factor (elevScore) que vale 0 cerca del umbral mínimo y 1 cuando el brazo es horizontal o superior: `confidence = vis×0.5 + ext×0.3 + elev×0.2`.
+
 **Ángulo de pointing:** dirección del vector fusionado en el plano imagen, calculado con `atan2(y, x)` en `metricas.js`. 0° = derecha, ±90° = abajo/arriba, ±180° = izquierda. Es distinto del ángulo de extensión del codo.
 
 **Jitter angular:** variación frame a frame del ángulo de pointing `|Δθ|` en grados, con corrección wrap-around. Umbrales: < 3°/frame → estable, 3–8° → moderado, > 8° → inestable. `AngularTracker` mantiene ventana de 30 frames igual que `StabilityTracker`.

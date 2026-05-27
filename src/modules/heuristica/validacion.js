@@ -1,22 +1,36 @@
 import { POSE_IDX } from '../estimacion_corporal/landmarks.js';
-import { computeExtensionAngle } from './vectores.js';
+import { computeExtensionAngle, normalize2D } from './vectores.js';
 
-// Ángulo máximo de doblado del codo para considerar que hay gesto (grados)
-const MAX_BEND_ANGLE = 90;
-// Visibilidad mínima de landmarks proximales
-const MIN_PROXIMAL_VIS = 0.4;
-// Extensión mínima para considerar gesto activo (grados entre el vector del brazo y la horizontal)
-const MIN_ARM_ELEVATION = 10;
+const MAX_BEND_ANGLE    = 90;    // grados — codo no puede doblar más de esto
+const MIN_PROXIMAL_VIS  = 0.4;   // visibilidad mínima de hombro y codo
+const MIN_WRIST_VIS     = 0.3;   // umbral más permisivo para la muñeca
+
+// Restricción de orientación: el vector del brazo debe desviarse al menos este
+// ángulo de la dirección vertical-abajo {0,1} (Y crece hacia abajo en imagen).
+// Evita falsos positivos con el brazo relajado colgando hacia abajo.
+const MIN_ANGLE_FROM_DOWN = 30;  // grados
+
+// Restricción de alcance: distancia mínima hombro-muñeca en coords normalizadas [0,1].
+// Filtra brazos doblados sobre el cuerpo cuya muñeca queda cerca del hombro.
+const MIN_WRIST_REACH = 0.12;
 
 /**
  * Valida si la pose actual corresponde a un gesto deíctico.
- * @param {Object} armData       - resultado de extractArmVectors()
- * @param {number} extensionAngle - ángulo de extensión calculado
+ *
+ * Checks por orden de coste computacional ascendente:
+ *   1. Visibilidad de landmarks proximales
+ *   2. Extensión del codo (no demasiado doblado)
+ *   3. Orientación global — brazo no colgante hacia abajo
+ *   4. Alcance hombro-muñeca — brazo suficientemente extendido
+ *
+ * @param {Object} armData        - resultado de extractArmVectors()
+ * @param {number} extensionAngle - ángulo codo en grados (0°=extendido)
  * @returns {{ isGesture: boolean, confidence: number, reason: string }}
  */
 export function validateGesture(armData, extensionAngle) {
-  const { visibility, vectors } = armData;
+  const { visibility, vectors, points } = armData;
 
+  // ── 1. Visibilidad proximal ───────────────────────────────────────────────
   if (visibility.shoulder < MIN_PROXIMAL_VIS) {
     return { isGesture: false, confidence: 0, reason: 'hombro_no_visible' };
   }
@@ -26,21 +40,54 @@ export function validateGesture(armData, extensionAngle) {
   if (!vectors.shoulderElbow) {
     return { isGesture: false, confidence: 0, reason: 'vector_proximal_ausente' };
   }
+
+  // ── 2. Extensión del codo ─────────────────────────────────────────────────
   if (extensionAngle > MAX_BEND_ANGLE) {
     return { isGesture: false, confidence: 0.2, reason: 'brazo_doblado' };
   }
 
-  // Confidencia basada en visibilidad y extensión
-  const visScore  = (visibility.shoulder + visibility.elbow) / 2;
-  const extScore  = 1 - Math.min(1, extensionAngle / MAX_BEND_ANGLE);
-  const confidence = visScore * 0.6 + extScore * 0.4;
+  // ── 3. Orientación global — brazo no colgante ─────────────────────────────
+  // Preferimos shoulderWrist (dirección completa); fallback a shoulderElbow
+  // si la muñeca no es visible.
+  const dirVec = vectors.shoulderWrist ?? vectors.shoulderElbow;
+  let angleFromDown = 180;   // valor seguro cuando no hay vector
+  if (dirVec) {
+    const v = normalize2D(dirVec);
+    // dot((vx, vy), (0, 1)) = vy  →  ángulo con vertical-abajo
+    angleFromDown = Math.acos(Math.max(-1, Math.min(1, v.y))) * (180 / Math.PI);
+    if (angleFromDown < MIN_ANGLE_FROM_DOWN) {
+      return { isGesture: false, confidence: 0.1, reason: 'brazo_colgante' };
+    }
+  }
 
+  // ── 4. Alcance hombro-muñeca ──────────────────────────────────────────────
+  // Solo se comprueba cuando la muñeca tiene visibilidad suficiente.
+  if (points.shoulder && points.wrist && visibility.wrist >= MIN_WRIST_VIS) {
+    const dist = Math.hypot(
+      points.wrist.x - points.shoulder.x,
+      points.wrist.y - points.shoulder.y,
+    );
+    if (dist < MIN_WRIST_REACH) {
+      return { isGesture: false, confidence: 0.1, reason: 'muneca_muy_cerca' };
+    }
+  }
+
+  // ── Confidencia ponderada ─────────────────────────────────────────────────
+  // visibilidad 50% + extensión 30% + elevación 20%
+  const visScore = (visibility.shoulder + visibility.elbow) / 2;
+  const extScore = 1 - Math.min(1, extensionAngle / MAX_BEND_ANGLE);
+  // elevScore: 0 cuando el brazo roza el umbral mínimo, 1 cuando es horizontal o más arriba
+  const elevScore = Math.max(0, Math.min(1,
+    (angleFromDown - MIN_ANGLE_FROM_DOWN) / (90 - MIN_ANGLE_FROM_DOWN)
+  ));
+
+  const confidence = visScore * 0.5 + extScore * 0.3 + elevScore * 0.2;
   return { isGesture: true, confidence, reason: 'ok' };
 }
 
 /**
  * Detecta automáticamente el brazo más extendido / activo.
- * Prefiere el brazo con mayor visibilidad de muñeca e índice y menor ángulo de doblado.
+ * Penaliza brazos que cuelgan hacia abajo para no elegir el brazo relajado.
  * @param {Array|null} poseLandmarks
  * @param {Object}     hands          - { Left, Right }
  * @returns {'Right'|'Left'}
@@ -57,14 +104,22 @@ export function detectActiveSide(poseLandmarks, hands) {
     const visBase = ((sh?.visibility ?? 0) + (el?.visibility ?? 0) + (wr?.visibility ?? 0)) / 3;
     const hasHand = hands?.[side] != null ? 0.15 : 0;
 
-    // Bonus si el codo está levantado respecto al hombro (el.y < sh.y en coords imagen)
+    // Penalizar si la muñeca está significativamente por debajo del hombro
+    // (brazo colgante): resta hasta 0.2 según cuánto caiga
+    let hangPenalty = 0;
+    if (sh && wr) {
+      const drop = wr.y - sh.y;   // positivo = muñeca más baja que hombro en imagen
+      if (drop > 0.1) hangPenalty = Math.min(0.2, drop);
+    }
+
+    // Bonus si el codo está levantado respecto al hombro
     let elevationBonus = 0;
     if (sh && el) {
-      const dy = sh.y - el.y;   // positivo cuando el codo está por encima del hombro
+      const dy = sh.y - el.y;
       if (dy > 0.05) elevationBonus = 0.1;
     }
 
-    return visBase + hasHand + elevationBonus;
+    return visBase + hasHand + elevationBonus - hangPenalty;
   };
 
   return score('Right') >= score('Left') ? 'Right' : 'Left';
