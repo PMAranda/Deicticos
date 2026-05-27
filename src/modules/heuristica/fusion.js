@@ -1,10 +1,13 @@
 import { normalize2D, scale2D, add2D, magnitude2D } from './vectores.js';
 
-// Pesos base de la fusión jerárquica
+// Pesos base de la fusión jerárquica.
+// Proximales (shoulderElbow, shoulderWrist) aportan estabilización global;
+// distales (elbowWrist, wristIndex) refinan la dirección, especialmente en
+// gestos laterales donde el hombro como referencia subestimaría la desviación.
 const BASE_WEIGHTS = {
-  shoulderElbow: 0.50,
-  shoulderWrist: 0.20,
-  elbowWrist:    0.15,
+  shoulderElbow: 0.35,
+  shoulderWrist: 0.15,
+  elbowWrist:    0.35,
   wristIndex:    0.15,
 };
 
@@ -12,8 +15,9 @@ const BASE_WEIGHTS = {
  * Fusiona los vectores del brazo en un único vector de pointing normalizado.
  *
  * Estrategia jerárquica:
- *   1. Proximales (shoulder→elbow) son la base principal — alta estabilidad.
- *   2. Distales se añaden como refinamiento solo cuando su visibilidad es suficiente.
+ *   1. shoulderElbow es el ancla de estabilidad — siempre requerido (modo fallback).
+ *   2. elbowWrist tiene peso igual a shoulderElbow para refinar la dirección del
+ *      antebrazo, crítico en gestos laterales cuando el usuario mira a cámara.
  *   3. Los pesos se redistribuyen automáticamente entre los vectores activos.
  *
  * @param {Object} vectors    - { shoulderElbow, shoulderWrist, elbowWrist, wristIndex }

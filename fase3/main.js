@@ -12,9 +12,9 @@ import { PointingSessionLogger }  from '../src/modules/heuristica/logger.js';
 const SPARKLINE_H = 120;
 
 const BASE_WEIGHTS = {
-  shoulderElbow: 0.50,
-  shoulderWrist: 0.20,
-  elbowWrist:    0.15,
+  shoulderElbow: 0.35,
+  shoulderWrist: 0.15,
+  elbowWrist:    0.35,
   wristIndex:    0.15,
 };
 

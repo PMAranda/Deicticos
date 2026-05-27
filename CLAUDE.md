@@ -92,7 +92,7 @@ fase3/
 
 **Sistema de coordenadas normalizadas:** origen (0,0) en esquina superior-izquierda del plano rectificado. X crece hacia la derecha, Y hacia abajo. La rejilla 3×3 divide el espacio en: superior/medio/inferior × izquierda/centro/derecha.
 
-**Heurística de pointing — fusión jerárquica:** pesos base shoulderElbow=0.50, shoulderWrist=0.20, elbowWrist=0.15, wristIndex=0.15. Los pesos de vectores no disponibles se redistribuyen automáticamente entre los activos. Modos resultantes: `full` (todos), `partial` (sin índice), `fallback` (solo proximal), `lost` (sin gesto).
+**Heurística de pointing — fusión jerárquica:** pesos base shoulderElbow=0.35, shoulderWrist=0.15, elbowWrist=0.35, wristIndex=0.15. `elbowWrist` tiene peso igual a `shoulderElbow` para capturar variaciones angulares del antebrazo en gestos laterales (el hombro como referencia única subestima la desviación lateral cuando el usuario mira a cámara). Los pesos de vectores no disponibles se redistribuyen automáticamente entre los activos. Modos: `full` (todos), `partial` (sin índice), `fallback` (solo proximal), `lost` (sin gesto).
 
 **Ángulo de extensión del brazo:** mide el ángulo entre los vectores hombro→codo y codo→muñeca en el plano 2D de imagen. 0° = brazo totalmente extendido. Se calcula con `computeExtensionAngle()` en `vectores.js`. **No es un criterio binario de rechazo**: se integra como factor gradual de confianza mediante `extScore = 1 − min(1, angle / EXT_ANGLE_REF)` (con `EXT_ANGLE_REF = 150°` en `validacion.js`). Brazo extendido → extScore≈1; brazo muy doblado (≥150°) → extScore=0. Señalar elementos cercanos con el codo parcialmente flexionado reduce la confianza pero no invalida el gesto.
 
