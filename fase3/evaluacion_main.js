@@ -59,8 +59,12 @@ class EvalApp {
 
     // Anotación manual de imágenes
     this.gtPanel           = document.getElementById('gtPanel');
+    this.gtPointingRow     = document.getElementById('gtPointingRow');
+    this.gtDirRow          = document.getElementById('gtDirRow');
     this.gtYesBtn          = document.getElementById('gtYesBtn');
     this.gtNoBtn           = document.getElementById('gtNoBtn');
+    this.gtDirYesBtn       = document.getElementById('gtDirYesBtn');
+    this.gtDirNoBtn        = document.getElementById('gtDirNoBtn');
     this.gtFeedback        = document.getElementById('gtFeedback');
     this.gtFeedbackText    = document.getElementById('gtFeedbackText');
     this.nextImageBtn      = document.getElementById('nextImageBtn');
@@ -94,6 +98,7 @@ class EvalApp {
     this._annotations        = [];
     this._currentImageResult = null;
     this._currentFileName    = '';
+    this._pendingGtPointing  = null;
 
     this._bindUpload();
     this._bindVideoControls();
@@ -336,8 +341,10 @@ class EvalApp {
   // ── Anotación manual de imágenes ──────────────────────────────────────────
 
   _bindAnnotationControls() {
-    this.gtYesBtn?.addEventListener('click', () => this._annotate(true));
-    this.gtNoBtn?.addEventListener('click',  () => this._annotate(false));
+    this.gtYesBtn?.addEventListener('click',    () => this._onGtPointing(true));
+    this.gtNoBtn?.addEventListener('click',     () => this._onGtPointing(false));
+    this.gtDirYesBtn?.addEventListener('click', () => this._annotate(this._pendingGtPointing, true));
+    this.gtDirNoBtn?.addEventListener('click',  () => this._annotate(this._pendingGtPointing, false));
 
     this.nextImageBtn?.addEventListener('click', () => {
       this.nextImageBtn.style.display = 'none';
@@ -355,6 +362,17 @@ class EvalApp {
     });
   }
 
+  _onGtPointing(isPointing) {
+    this._pendingGtPointing = isPointing;
+    // La dirección solo se puede evaluar si el sistema detectó un vector
+    if (isPointing && this._currentImageResult?.isGesture) {
+      if (this.gtPointingRow) this.gtPointingRow.style.display = 'none';
+      if (this.gtDirRow)      this.gtDirRow.style.display      = 'flex';
+    } else {
+      this._annotate(isPointing, null);
+    }
+  }
+
   _showGTPanel(result) {
     if (!this.gtPanel) return;
     // Mostrar qué detectó el sistema para que el usuario tenga contexto
@@ -366,13 +384,16 @@ class EvalApp {
       detectedEl.textContent = detectedLabel;
       detectedEl.style.color = result.isGesture ? '#4DFF88' : '#FF8C4D';
     }
+    if (this.gtPointingRow) this.gtPointingRow.style.display = 'flex';
+    if (this.gtDirRow)      this.gtDirRow.style.display      = 'none';
+    this._pendingGtPointing = null;
     this.gtPanel.style.display = 'block';
     this.gtFeedback.style.display = 'none';
     this.nextImageBtn.style.display = 'none';
     this._setStatus(`Imagen analizada: ${this.canvas.width}×${this.canvas.height} — etiqueta si la persona apunta`);
   }
 
-  _annotate(isPointing) {
+  _annotate(isPointing, gtDirection) {
     if (!this._currentImageResult) return;
     const result   = this._currentImageResult;
     const detected = result.isGesture;
@@ -383,6 +404,7 @@ class EvalApp {
       gt:             isPointing,
       detected,
       correct,
+      gtDirection,    // true/false si se evaluó la dirección; null si no aplica
       mode:           result.mode           ?? 'lost',
       confidence:     result.confidence     ?? 0,
       extensionAngle: result.extensionAngle ?? null,
@@ -427,6 +449,12 @@ class EvalApp {
     const f1  = (tp + fp) && (tp + fn) && tp
       ? (2 * tp / (2 * tp + fp + fn) * 100).toFixed(1) : '—';
 
+    const dirAnnots = A.filter(a => a.gtDirection !== null && a.gtDirection !== undefined);
+    const dirTotal  = dirAnnots.length;
+    const dirAcc    = dirTotal
+      ? (dirAnnots.filter(a => a.gtDirection).length / dirTotal * 100).toFixed(1)
+      : '—';
+
     this.annotationStatsEl.innerHTML = `
       <div class="stat-pill">Total <strong>${n}</strong></div>
       <div class="stat-pill good">Accuracy <strong>${acc}%</strong></div>
@@ -436,14 +464,15 @@ class EvalApp {
       <div class="stat-pill">TP <strong>${tp}</strong></div>
       <div class="stat-pill">TN <strong>${tn}</strong></div>
       <div class="stat-pill warn">FP <strong>${fp}</strong></div>
-      <div class="stat-pill bad">FN <strong>${fn}</strong></div>`;
+      <div class="stat-pill bad">FN <strong>${fn}</strong></div>
+      <div class="stat-pill good" title="Porcentaje de casos donde el sistema apuntó en la dirección correcta (sobre los ${dirTotal} TP evaluados)">Acc. dirección <strong>${dirAcc}${dirTotal ? '%' : ''}</strong></div>`;
   }
 
   _updateAnnotationTable() {
     if (!this.annotationBodyEl) return;
     if (!this._annotations.length) {
       this.annotationBodyEl.innerHTML =
-        '<tr><td colspan="9" class="empty">Sin anotaciones todavía</td></tr>';
+        '<tr><td colspan="10" class="empty">Sin anotaciones todavía</td></tr>';
       return;
     }
 
@@ -453,6 +482,11 @@ class EvalApp {
       const detIcon = a.detected ? '<span style="color:#4DFF88">Sí</span>' : '<span style="color:#888">No</span>';
       const okIcon  = a.correct  ? '✓' : '✗';
       const okColor = a.correct  ? '#4DFF88' : '#FF4D4D';
+      const dirIcon = a.gtDirection === null || a.gtDirection === undefined
+        ? '<span style="color:#333">—</span>'
+        : a.gtDirection
+          ? '<span style="color:#4DFF88">✓</span>'
+          : '<span style="color:#FF4D4D">✗</span>';
       const modeColors = { full:'#4DFF88', partial:'#FFD700', fallback:'#FF8C4D', lost:'#555' };
       const mc = modeColors[a.mode] ?? '#888';
       const conf = `${(a.confidence * 100).toFixed(0)}%`;
@@ -466,6 +500,7 @@ class EvalApp {
         <td>${gtIcon}</td>
         <td>${detIcon}</td>
         <td style="color:${okColor};font-weight:700">${okIcon}</td>
+        <td>${dirIcon}</td>
         <td style="color:${mc}">${a.mode}</td>
         <td>${conf}</td>
         <td>${ext}</td>
@@ -477,7 +512,7 @@ class EvalApp {
   _exportAnnotationsCSV() {
     if (!this._annotations.length) return;
     const header = [
-      'Imagen', 'Apuntando_Real', 'Detectado', 'Correcto',
+      'Imagen', 'Apuntando_Real', 'Detectado', 'Correcto', 'Dirección_Correcta',
       'Modo', 'Confianza(%)', 'Extensión(°)', 'Razón', 'Brazo',
       'Heurística', 'Distancia', 'Movimiento', 'Oclusión',
     ].join(',');
@@ -487,6 +522,7 @@ class EvalApp {
       a.gt       ? 1 : 0,
       a.detected ? 1 : 0,
       a.correct  ? 1 : 0,
+      a.gtDirection !== null && a.gtDirection !== undefined ? (a.gtDirection ? 1 : 0) : '',
       a.mode,
       (a.confidence * 100).toFixed(1),
       a.extensionAngle != null ? a.extensionAngle.toFixed(1) : '',

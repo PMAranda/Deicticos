@@ -94,7 +94,7 @@ fase3/
 
 **Heurística de pointing — fusión jerárquica:** pesos base shoulderElbow=0.50, shoulderWrist=0.20, elbowWrist=0.15, wristIndex=0.15. Los pesos de vectores no disponibles se redistribuyen automáticamente entre los activos. Modos resultantes: `full` (todos), `partial` (sin índice), `fallback` (solo proximal), `lost` (sin gesto).
 
-**Ángulo de extensión del brazo:** mide el ángulo entre los vectores hombro→codo y codo→muñeca en el plano 2D de imagen. 0° = brazo totalmente extendido (apuntando), >90° = doblado → gesto rechazado. Se calcula con `computeExtensionAngle()` en `vectores.js`. Umbral de validación: `MAX_BEND_ANGLE = 90°` en `validacion.js`.
+**Ángulo de extensión del brazo:** mide el ángulo entre los vectores hombro→codo y codo→muñeca en el plano 2D de imagen. 0° = brazo totalmente extendido. Se calcula con `computeExtensionAngle()` en `vectores.js`. **No es un criterio binario de rechazo**: se integra como factor gradual de confianza mediante `extScore = 1 − min(1, angle / EXT_ANGLE_REF)` (con `EXT_ANGLE_REF = 150°` en `validacion.js`). Brazo extendido → extScore≈1; brazo muy doblado (≥150°) → extScore=0. Señalar elementos cercanos con el codo parcialmente flexionado reduce la confianza pero no invalida el gesto.
 
 **Restricciones adicionales de validación (falsos positivos):** el ángulo de extensión solo mide linealidad, no dirección — un brazo colgando hacia abajo también tiene extensionAngle ≈ 0° y generaba falsos positivos. `validateGesture()` aplica dos restricciones extra:
 - *Orientación global* (`MIN_ANGLE_FROM_DOWN = 30°`): el vector hombro→muñeca (o hombro→codo si la muñeca no es visible) debe desviarse al menos 30° de la dirección vertical-abajo `{0,1}`. Razón de rechazo: `'brazo_colgante'`.

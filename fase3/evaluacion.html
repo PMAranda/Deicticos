@@ -100,11 +100,18 @@
         <span class="gt-label">Resultado del sistema:</span>
         <span id="gtSystemResult">—</span>
       </div>
-      <div class="gt-question-row">
+      <div id="gtPointingRow" class="gt-question-row">
         <span class="gt-question">¿Esta persona está apuntando realmente?</span>
         <div class="gt-buttons">
           <button id="gtYesBtn" class="gt-btn gt-yes">✓ Sí, apunta</button>
           <button id="gtNoBtn"  class="gt-btn gt-no">✗ No apunta</button>
+        </div>
+      </div>
+      <div id="gtDirRow" class="gt-question-row" style="display:none">
+        <span class="gt-question">¿La dirección detectada es correcta? <span class="gt-step-hint">(paso 2/2)</span></span>
+        <div class="gt-buttons">
+          <button id="gtDirYesBtn" class="gt-btn gt-yes">✓ Correcta</button>
+          <button id="gtDirNoBtn"  class="gt-btn gt-no">✗ Incorrecta</button>
         </div>
       </div>
     </section>
@@ -211,6 +218,7 @@
             <th title="Ground Truth — etiqueta manual">GT</th>
             <th title="Detección del sistema">Det.</th>
             <th title="¿Correcto?">✓/✗</th>
+            <th title="¿Dirección correcta?">Dir.</th>
             <th>Modo</th>
             <th>Conf.</th>
             <th>Ext.</th>
@@ -218,7 +226,7 @@
           </tr>
         </thead>
         <tbody id="annotationBody">
-          <tr><td colspan="9" class="empty">Sin anotaciones todavía</td></tr>
+          <tr><td colspan="10" class="empty">Sin anotaciones todavía</td></tr>
         </tbody>
       </table>
 

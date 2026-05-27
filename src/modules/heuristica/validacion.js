@@ -1,7 +1,7 @@
 import { POSE_IDX } from '../estimacion_corporal/landmarks.js';
 import { computeExtensionAngle, normalize2D } from './vectores.js';
 
-const MAX_BEND_ANGLE    = 90;    // grados — codo no puede doblar más de esto
+const EXT_ANGLE_REF     = 150;   // grados — referencia para escala de extScore (0°→1, 150°+→0)
 const MIN_PROXIMAL_VIS  = 0.4;   // visibilidad mínima de hombro y codo
 const MIN_WRIST_VIS     = 0.3;   // umbral más permisivo para la muñeca
 
@@ -19,9 +19,11 @@ const MIN_WRIST_REACH = 0.12;
  *
  * Checks por orden de coste computacional ascendente:
  *   1. Visibilidad de landmarks proximales
- *   2. Extensión del codo (no demasiado doblado)
- *   3. Orientación global — brazo no colgante hacia abajo
- *   4. Alcance hombro-muñeca — brazo suficientemente extendido
+ *   2. Orientación global — brazo no colgante hacia abajo
+ *   3. Alcance hombro-muñeca — brazo suficientemente extendido
+ *
+ * El ángulo de extensión ya no es criterio binario de rechazo; se incorpora
+ * como factor gradual de confianza (brazo extendido → mayor confianza).
  *
  * @param {Object} armData        - resultado de extractArmVectors()
  * @param {number} extensionAngle - ángulo codo en grados (0°=extendido)
@@ -41,12 +43,7 @@ export function validateGesture(armData, extensionAngle) {
     return { isGesture: false, confidence: 0, reason: 'vector_proximal_ausente' };
   }
 
-  // ── 2. Extensión del codo ─────────────────────────────────────────────────
-  if (extensionAngle > MAX_BEND_ANGLE) {
-    return { isGesture: false, confidence: 0.2, reason: 'brazo_doblado' };
-  }
-
-  // ── 3. Orientación global — brazo no colgante ─────────────────────────────
+  // ── 2. Orientación global — brazo no colgante ─────────────────────────────
   // Preferimos shoulderWrist (dirección completa); fallback a shoulderElbow
   // si la muñeca no es visible.
   const dirVec = vectors.shoulderWrist ?? vectors.shoulderElbow;
@@ -60,7 +57,7 @@ export function validateGesture(armData, extensionAngle) {
     }
   }
 
-  // ── 4. Alcance hombro-muñeca ──────────────────────────────────────────────
+  // ── 3. Alcance hombro-muñeca ──────────────────────────────────────────────
   // Solo se comprueba cuando la muñeca tiene visibilidad suficiente.
   if (points.shoulder && points.wrist && visibility.wrist >= MIN_WRIST_VIS) {
     const dist = Math.hypot(
@@ -74,8 +71,9 @@ export function validateGesture(armData, extensionAngle) {
 
   // ── Confidencia ponderada ─────────────────────────────────────────────────
   // visibilidad 50% + extensión 30% + elevación 20%
+  // extScore: gradual entre 0° (=1) y EXT_ANGLE_REF (=0); nunca rechaza el gesto
   const visScore = (visibility.shoulder + visibility.elbow) / 2;
-  const extScore = 1 - Math.min(1, extensionAngle / MAX_BEND_ANGLE);
+  const extScore = 1 - Math.min(1, extensionAngle / EXT_ANGLE_REF);
   // elevScore: 0 cuando el brazo roza el umbral mínimo, 1 cuando es horizontal o más arriba
   const elevScore = Math.max(0, Math.min(1,
     (angleFromDown - MIN_ANGLE_FROM_DOWN) / (90 - MIN_ANGLE_FROM_DOWN)

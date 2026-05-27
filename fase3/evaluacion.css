@@ -329,6 +329,13 @@
 }
 .gt-no:hover { background: rgba(255,77,77,0.20); }
 
+.gt-step-hint {
+  font-size: 0.72rem;
+  color: #5060a0;
+  font-weight: 400;
+  margin-left: 0.3em;
+}
+
 /* ── Feedback de anotación ─────────────────────────────────────────────────── */
 .gt-feedback {
   display: flex;
