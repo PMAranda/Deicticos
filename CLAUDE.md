@@ -86,6 +86,8 @@ fase3/
 
 **Detección en el loop:** `pose.detect(video, now)` y `hands.detect(video, now)` son síncronos. El timestamp debe ser monotónico (`performance.now()`).
 
+**Modos de ejecución MediaPipe:** `init('VIDEO')` (por defecto) mantiene estado temporal entre frames — correcto para cámara y vídeo. `init('IMAGE')` procesa cada llamada de forma independiente sin estado — obligatorio para imágenes estáticas; garantiza resultados deterministas (la misma imagen siempre da el mismo resultado). En modo IMAGE, `detect(source)` llama a `landmarker.detect()` internamente, ignorando el timestamp.
+
 **Estabilidad:** ventana de 30 frames. Umbrales de jitter (coordenadas normalizadas): < 0.004 → estable (verde), 0.004–0.012 → moderado (amarillo), > 0.012 → inestable (rojo).
 
 **Sistema de coordenadas normalizadas:** origen (0,0) en esquina superior-izquierda del plano rectificado. X crece hacia la derecha, Y hacia abajo. La rejilla 3×3 divide el espacio en: superior/medio/inferior × izquierda/centro/derecha.

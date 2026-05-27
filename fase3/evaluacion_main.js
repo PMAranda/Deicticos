@@ -35,31 +35,46 @@ class EvalApp {
     this.sparkCtx        = this.sparkCanvas.getContext('2d');
     this.timelineCtx     = this.timelineCanvas?.getContext('2d') ?? null;
 
-    this.statusEl        = document.getElementById('status');
-    this.badgeEl         = document.getElementById('trackingBadge');
-    this.fpsBadgeEl      = document.getElementById('fpsBadge');
-    this.modeBadgeEl     = document.getElementById('modeBadge');
-    this.metricsBodyEl   = document.getElementById('metricsBody');
-    this.weightsBodyEl   = document.getElementById('weightsBody');
-    this.dropZone        = document.getElementById('dropZone');
-    this.fileInput       = document.getElementById('fileInput');
-    this.sourceBar       = document.getElementById('sourceBar');
-    this.videoControls   = document.getElementById('videoControls');
-    this.timelineSection = document.getElementById('timelineSection');
-    this.playBtn         = document.getElementById('playBtn');
-    this.seekBar         = document.getElementById('seekBar');
-    this.timeDisplay     = document.getElementById('timeDisplay');
-    this.speedSelect     = document.getElementById('speedSelect');
-    this.stepBtn         = document.getElementById('stepBtn');
-    this.summarySection  = document.getElementById('summarySection');
-    this.summaryBodyEl   = document.getElementById('summaryBody');
-    this.exportBtn       = document.getElementById('exportBtn');
-    this.reloadBtn       = document.getElementById('reloadBtn');
-    this.frameInfoEl     = document.getElementById('frameInfo');
+    this.statusEl          = document.getElementById('status');
+    this.badgeEl           = document.getElementById('trackingBadge');
+    this.fpsBadgeEl        = document.getElementById('fpsBadge');
+    this.modeBadgeEl       = document.getElementById('modeBadge');
+    this.metricsBodyEl     = document.getElementById('metricsBody');
+    this.weightsBodyEl     = document.getElementById('weightsBody');
+    this.dropZone          = document.getElementById('dropZone');
+    this.fileInput         = document.getElementById('fileInput');
+    this.sourceBar         = document.getElementById('sourceBar');
+    this.videoControls     = document.getElementById('videoControls');
+    this.timelineSection   = document.getElementById('timelineSection');
+    this.playBtn           = document.getElementById('playBtn');
+    this.seekBar           = document.getElementById('seekBar');
+    this.timeDisplay       = document.getElementById('timeDisplay');
+    this.speedSelect       = document.getElementById('speedSelect');
+    this.stepBtn           = document.getElementById('stepBtn');
+    this.summarySection    = document.getElementById('summarySection');
+    this.summaryBodyEl     = document.getElementById('summaryBody');
+    this.exportBtn         = document.getElementById('exportBtn');
+    this.reloadBtn         = document.getElementById('reloadBtn');
+    this.frameInfoEl       = document.getElementById('frameInfo');
 
-    // Módulos
+    // Anotación manual de imágenes
+    this.gtPanel           = document.getElementById('gtPanel');
+    this.gtYesBtn          = document.getElementById('gtYesBtn');
+    this.gtNoBtn           = document.getElementById('gtNoBtn');
+    this.gtFeedback        = document.getElementById('gtFeedback');
+    this.gtFeedbackText    = document.getElementById('gtFeedbackText');
+    this.nextImageBtn      = document.getElementById('nextImageBtn');
+    this.annotationSection = document.getElementById('annotationSection');
+    this.annotationBodyEl  = document.getElementById('annotationBody');
+    this.annotationStatsEl = document.getElementById('annotationStats');
+    this.exportAnnotBtn    = document.getElementById('exportAnnotBtn');
+    this.clearAnnotBtn     = document.getElementById('clearAnnotBtn');
+
+    // Módulos — VIDEO para cámara/vídeo, IMAGE para imágenes estáticas (determinista)
     this.pose        = new PoseEstimator();
     this.hands       = new HandEstimator();
+    this.poseImg     = new PoseEstimator();
+    this.handsImg    = new HandEstimator();
     this.bodyRdr     = new LandmarkRenderer();
     this.pointingEst = new PointingEstimator();
     this.pointingRdr = new PointingRenderer();
@@ -67,26 +82,36 @@ class EvalApp {
     this.fpsTracker  = new FPSTracker(60);
     this.logger      = new PointingSessionLogger();
 
-    // Estado
-    this._mode      = null;   // 'video' | 'image' | null
+    // Estado general
+    this._mode      = null;
     this._loopId    = null;
     this._isPlaying = false;
-    this._recorded  = false;  // evita regrabar si el usuario repite el vídeo
-    this._timeline  = [];     // {t: number, mode: string}
+    this._recorded  = false;
+    this._timeline  = [];
     this._side      = 'auto';
+
+    // Estado anotación manual
+    this._annotations        = [];
+    this._currentImageResult = null;
+    this._currentFileName    = '';
 
     this._bindUpload();
     this._bindVideoControls();
     this._bindConditionControls();
-    this.exportBtn.addEventListener('click', () => this._exportCSV());
+    this._bindAnnotationControls();
+    this.exportBtn.addEventListener('click', () => this._exportVideoCSV());
     this.reloadBtn?.addEventListener('click', () => this._resetToUpload());
   }
 
   async init() {
     this._setStatus('Cargando modelos MediaPipe…');
     try {
-      await this.pose.init();
-      await this.hands.init();
+      await Promise.all([
+        this.pose.init('VIDEO'),
+        this.hands.init('VIDEO'),
+        this.poseImg.init('IMAGE'),
+        this.handsImg.init('IMAGE'),
+      ]);
       this._setStatus('Listo. Sube un vídeo o imagen para evaluar.');
     } catch (err) {
       this._setStatus(`Error cargando modelos: ${err.message}`, true);
@@ -159,10 +184,9 @@ class EvalApp {
     }
 
     document.getElementById('fileDuration').textContent = this._fmtTime(this.video.duration);
-    this.videoControls.style.display  = 'flex';
+    this.videoControls.style.display   = 'flex';
     this.timelineSection.style.display = 'block';
 
-    // Mostrar primer frame congelado
     this.video.currentTime = 0;
     await new Promise(res => {
       this.video.onseeked = () => { this.video.onseeked = null; res(); };
@@ -172,6 +196,7 @@ class EvalApp {
   }
 
   async _initImage(file) {
+    this._currentFileName = file.name;
     const url = URL.createObjectURL(file);
     const img = new Image();
     await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
@@ -183,26 +208,24 @@ class EvalApp {
     this.sparkCanvas.width  = W;
     this.sparkCanvas.height = SPARKLINE_H;
 
-    // Detectar sobre la imagen
-    const ts = performance.now();
-    const poseRes  = this.pose.detect(img, ts);
-    const handsRes = this.hands.detect(img, ts);
+    // Modo IMAGE: sin estado temporal → resultado determinista para la misma imagen
+    const poseRes  = this.poseImg.detect(img);
+    const handsRes = this.handsImg.detect(img);
     const { pose, hands } = extractDeicticLandmarks(poseRes, handsRes);
     const result = this.pointingEst.estimate(pose, hands, this._side);
     this.angTracker.update(result);
 
-    // Dibujar imagen + overlay
     this.ctx.drawImage(img, 0, 0);
     this._renderOverlay(result, pose, hands, false);
     this._updateUI(result, pose, hands);
 
     document.getElementById('fileDuration').textContent = '—';
     if (this.frameInfoEl) this.frameInfoEl.textContent = '1 frame';
-    this._setStatus(
-      `Imagen analizada: ${W}×${H} · Gesto: ${result.isGesture
-        ? `DETECTADO (${(result.confidence * 100).toFixed(0)}% conf.)`
-        : `NO detectado — ${result.reason ?? '—'}`}`
-    );
+
+    // Guardar resultado y mostrar panel de etiquetado
+    this._currentImageResult = result;
+    this._showGTPanel(result);
+
     URL.revokeObjectURL(url);
   }
 
@@ -225,10 +248,7 @@ class EvalApp {
       if (this._isPlaying) this._togglePlay();
       const next = Math.min(this.video.duration, this.video.currentTime + 1 / 30);
       this.video.currentTime = next;
-      this.video.onseeked = () => {
-        this.video.onseeked = null;
-        this._processVideoFrame();
-      };
+      this.video.onseeked = () => { this.video.onseeked = null; this._processVideoFrame(); };
     });
 
     this.video.addEventListener('timeupdate', () => {
@@ -258,7 +278,6 @@ class EvalApp {
       this._loopId = null;
     } else {
       if (this.video.ended) this.video.currentTime = 0;
-      // Iniciar grabación al primer play (si no se ha grabado ya)
       if (!this._recorded && !this.logger.isRecording) {
         this.logger.startSession(this._getCondition());
       }
@@ -309,9 +328,183 @@ class EvalApp {
     if (this.logger.isRecording) {
       const summary = this.logger.stopSession();
       this._recorded = true;
-      this._showSummary(summary);
+      this._showVideoSummary(summary);
     }
     this._setStatus('Análisis completo. Consulta el resumen o exporta el CSV.');
+  }
+
+  // ── Anotación manual de imágenes ──────────────────────────────────────────
+
+  _bindAnnotationControls() {
+    this.gtYesBtn?.addEventListener('click', () => this._annotate(true));
+    this.gtNoBtn?.addEventListener('click',  () => this._annotate(false));
+
+    this.nextImageBtn?.addEventListener('click', () => {
+      this.nextImageBtn.style.display = 'none';
+      this.gtFeedback.style.display   = 'none';
+      this.fileInput.click();
+    });
+
+    this.exportAnnotBtn?.addEventListener('click', () => this._exportAnnotationsCSV());
+
+    this.clearAnnotBtn?.addEventListener('click', () => {
+      if (!this._annotations.length) return;
+      this._annotations = [];
+      this._updateAnnotationTable();
+      this.exportAnnotBtn.disabled = true;
+    });
+  }
+
+  _showGTPanel(result) {
+    if (!this.gtPanel) return;
+    // Mostrar qué detectó el sistema para que el usuario tenga contexto
+    const detectedLabel = result.isGesture
+      ? `Sistema detecta: APUNTA (modo ${result.mode}, ${(result.confidence * 100).toFixed(0)}% conf.)`
+      : `Sistema detecta: NO APUNTA (razón: ${result.reason ?? '—'})`;
+    const detectedEl = document.getElementById('gtSystemResult');
+    if (detectedEl) {
+      detectedEl.textContent = detectedLabel;
+      detectedEl.style.color = result.isGesture ? '#4DFF88' : '#FF8C4D';
+    }
+    this.gtPanel.style.display = 'block';
+    this.gtFeedback.style.display = 'none';
+    this.nextImageBtn.style.display = 'none';
+    this._setStatus(`Imagen analizada: ${this.canvas.width}×${this.canvas.height} — etiqueta si la persona apunta`);
+  }
+
+  _annotate(isPointing) {
+    if (!this._currentImageResult) return;
+    const result   = this._currentImageResult;
+    const detected = result.isGesture;
+    const correct  = (isPointing === detected);
+
+    this._annotations.push({
+      filename:       this._currentFileName,
+      gt:             isPointing,
+      detected,
+      correct,
+      mode:           result.mode           ?? 'lost',
+      confidence:     result.confidence     ?? 0,
+      extensionAngle: result.extensionAngle ?? null,
+      reason:         result.reason         ?? '—',
+      side:           result.side           ?? '—',
+      condition:      { ...this._getCondition() },
+    });
+
+    this.gtPanel.style.display    = 'none';
+    this.gtFeedback.style.display = 'flex';
+    this.nextImageBtn.style.display = 'inline-block';
+    this.exportAnnotBtn.disabled    = false;
+
+    if (this.gtFeedbackText) {
+      if (correct) {
+        this.gtFeedbackText.textContent = '✓ Correcto — detección acertada';
+        this.gtFeedbackText.style.color = '#4DFF88';
+      } else {
+        const tipo = isPointing && !detected ? 'Falso negativo (no detectó pero sí apuntaba)'
+                                             : 'Falso positivo (detectó pero no apuntaba)';
+        this.gtFeedbackText.textContent = `✗ Error — ${tipo}`;
+        this.gtFeedbackText.style.color = '#FF4D4D';
+      }
+    }
+
+    this._updateAnnotationStats();
+    this._updateAnnotationTable();
+    if (this.annotationSection) this.annotationSection.style.display = 'block';
+  }
+
+  _updateAnnotationStats() {
+    if (!this.annotationStatsEl || !this._annotations.length) return;
+    const A   = this._annotations;
+    const n   = A.length;
+    const tp  = A.filter(a =>  a.gt &&  a.detected).length;
+    const tn  = A.filter(a => !a.gt && !a.detected).length;
+    const fp  = A.filter(a => !a.gt &&  a.detected).length;
+    const fn  = A.filter(a =>  a.gt && !a.detected).length;
+    const acc = ((tp + tn) / n * 100).toFixed(1);
+    const pre = (tp + fp) ? (tp / (tp + fp) * 100).toFixed(1) : '—';
+    const rec = (tp + fn) ? (tp / (tp + fn) * 100).toFixed(1) : '—';
+    const f1  = (tp + fp) && (tp + fn) && tp
+      ? (2 * tp / (2 * tp + fp + fn) * 100).toFixed(1) : '—';
+
+    this.annotationStatsEl.innerHTML = `
+      <div class="stat-pill">Total <strong>${n}</strong></div>
+      <div class="stat-pill good">Accuracy <strong>${acc}%</strong></div>
+      <div class="stat-pill good">Precisión <strong>${pre}%</strong></div>
+      <div class="stat-pill good">Recall <strong>${rec}%</strong></div>
+      <div class="stat-pill good">F1 <strong>${f1}%</strong></div>
+      <div class="stat-pill">TP <strong>${tp}</strong></div>
+      <div class="stat-pill">TN <strong>${tn}</strong></div>
+      <div class="stat-pill warn">FP <strong>${fp}</strong></div>
+      <div class="stat-pill bad">FN <strong>${fn}</strong></div>`;
+  }
+
+  _updateAnnotationTable() {
+    if (!this.annotationBodyEl) return;
+    if (!this._annotations.length) {
+      this.annotationBodyEl.innerHTML =
+        '<tr><td colspan="9" class="empty">Sin anotaciones todavía</td></tr>';
+      return;
+    }
+
+    this.annotationBodyEl.innerHTML = [...this._annotations].reverse().map((a, i) => {
+      const idx  = this._annotations.length - i;
+      const gtIcon  = a.gt       ? '<span style="color:#4DFF88">Sí</span>' : '<span style="color:#888">No</span>';
+      const detIcon = a.detected ? '<span style="color:#4DFF88">Sí</span>' : '<span style="color:#888">No</span>';
+      const okIcon  = a.correct  ? '✓' : '✗';
+      const okColor = a.correct  ? '#4DFF88' : '#FF4D4D';
+      const modeColors = { full:'#4DFF88', partial:'#FFD700', fallback:'#FF8C4D', lost:'#555' };
+      const mc = modeColors[a.mode] ?? '#888';
+      const conf = `${(a.confidence * 100).toFixed(0)}%`;
+      const ext  = a.extensionAngle != null ? `${a.extensionAngle.toFixed(1)}°` : '—';
+      const fname = a.filename.length > 22
+        ? `…${a.filename.slice(-20)}`
+        : a.filename;
+      return `<tr>
+        <td style="color:#555">${idx}</td>
+        <td title="${a.filename}" style="color:#9ab4f5">${fname}</td>
+        <td>${gtIcon}</td>
+        <td>${detIcon}</td>
+        <td style="color:${okColor};font-weight:700">${okIcon}</td>
+        <td style="color:${mc}">${a.mode}</td>
+        <td>${conf}</td>
+        <td>${ext}</td>
+        <td style="color:${a.reason === 'ok' ? '#4DFF88' : '#FF8C4D'}">${a.reason}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  _exportAnnotationsCSV() {
+    if (!this._annotations.length) return;
+    const header = [
+      'Imagen', 'Apuntando_Real', 'Detectado', 'Correcto',
+      'Modo', 'Confianza(%)', 'Extensión(°)', 'Razón', 'Brazo',
+      'Heurística', 'Distancia', 'Movimiento', 'Oclusión',
+    ].join(',');
+
+    const rows = [header, ...this._annotations.map(a => [
+      `"${a.filename}"`,
+      a.gt       ? 1 : 0,
+      a.detected ? 1 : 0,
+      a.correct  ? 1 : 0,
+      a.mode,
+      (a.confidence * 100).toFixed(1),
+      a.extensionAngle != null ? a.extensionAngle.toFixed(1) : '',
+      `"${a.reason}"`,
+      a.side,
+      `"${a.condition.heuristic}"`,
+      a.condition.distance,
+      a.condition.movement,
+      a.condition.occlusion,
+    ].join(','))];
+
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `anotaciones_pointing_${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   // ── Renderizado ───────────────────────────────────────────────────────────
@@ -340,33 +533,27 @@ class EvalApp {
     const dur = this.video.duration;
 
     ctx.clearRect(0, 0, W, H);
-
     const segW = Math.max(1, W / (dur * 30));
     this._timeline.forEach(f => {
-      const x = (f.t / dur) * W;
       ctx.fillStyle = MODE_COLORS[f.mode] ?? MODE_COLORS.lost;
-      ctx.fillRect(x, 3, segW, H - 6);
+      ctx.fillRect((f.t / dur) * W, 3, segW, H - 6);
     });
 
-    // Cursor de posición actual
     const cx = (this.video.currentTime / dur) * W;
     ctx.strokeStyle = 'rgba(255,255,255,0.85)';
     ctx.lineWidth   = 1.5;
     ctx.beginPath();
-    ctx.moveTo(cx, 0);
-    ctx.lineTo(cx, H);
+    ctx.moveTo(cx, 0); ctx.lineTo(cx, H);
     ctx.stroke();
   }
 
-  // ── Resumen post-análisis ─────────────────────────────────────────────────
+  // ── Resumen vídeo ─────────────────────────────────────────────────────────
 
-  _showSummary(summary) {
+  _showVideoSummary(summary) {
     if (!summary) return;
     this.summarySection.style.display = 'block';
     this.summarySection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-
     const lc = { stable: '#4DFF88', moderate: '#FFD700', unstable: '#FF4D4D' }[summary.level] ?? '#aaa';
-
     const rows = [
       ['Frames totales',   `${summary.frameCount}`],
       ['Duración',         `${(summary.durationMs / 1000).toFixed(1)} s`],
@@ -379,26 +566,23 @@ class EvalApp {
       ['Fallback rate',    `${summary.fallbackRate.toFixed(1)}%`],
       ['Continuidad máx', `${summary.maxContinuity} frames`],
     ];
-
     const pills = Object.entries(summary.modePcts)
       .filter(([, v]) => v > 0)
       .map(([k, v]) => `<span class="mode-pill ${k}">${k} ${v.toFixed(1)}%</span>`)
       .join('');
-
     this.summaryBodyEl.innerHTML =
       rows.map(([l, v]) => `<tr><td>${l}</td><td>${v}</td></tr>`).join('') +
       `<tr><td>Modos</td><td><div class="mode-pills">${pills}</div></td></tr>`;
-
     this.exportBtn.disabled = false;
   }
 
-  _exportCSV() {
+  _exportVideoCSV() {
     const csv  = this.logger.exportCSV();
     const blob = new Blob([csv], { type: 'text/csv' });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
     a.href     = url;
-    a.download = `eval_pointing_${Date.now()}.csv`;
+    a.download = `eval_video_${Date.now()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -409,10 +593,7 @@ class EvalApp {
     document.querySelectorAll('.tag[data-group]').forEach(btn => {
       const g = btn.dataset.group;
       btn.addEventListener('click', () => {
-        if (g === 'side') {
-          this._side = btn.dataset.value;
-          this.pointingEst.reset();
-        }
+        if (g === 'side') { this._side = btn.dataset.value; this.pointingEst.reset(); }
         document.querySelectorAll(`.tag[data-group="${g}"]`)
           .forEach(b => b.classList.toggle('active', b === btn));
       });
@@ -479,7 +660,6 @@ class EvalApp {
       ['Fallback rate',  `${(am.fallbackRate * 100).toFixed(1)}%`, am.fallbackRate > 0.2 ? '#FF8C4D' : '#4DFF88'],
       ['Motivo',         reason ?? '—',                            reason === 'ok' ? '#4DFF88' : '#FF8C4D'],
     ];
-
     this.metricsBodyEl.innerHTML = rows.map(([l, v, c]) =>
       `<tr><td>${l}</td><td style="color:${c}">${v}</td></tr>`
     ).join('');
@@ -522,15 +702,21 @@ class EvalApp {
     if (this.logger.isRecording) this.logger.stopSession();
     this.angTracker.clear();
     this.pointingEst.reset();
-    this._timeline  = [];
-    this._recorded  = false;
-    this._mode      = null;
+    this._timeline           = [];
+    this._recorded           = false;
+    this._mode               = null;
+    this._currentImageResult = null;
+    this._currentFileName    = '';
     this.playBtn.textContent = '▶ Play';
     this.exportBtn.disabled  = true;
     this.sparkCtx.clearRect(0, 0, this.sparkCanvas.width, this.sparkCanvas.height);
     this.timelineCtx?.clearRect(0, 0, this.timelineCanvas?.width ?? 0, TIMELINE_H);
-    this.summarySection.style.display = 'none';
-    this.summaryBodyEl.innerHTML = '';
+    this.summarySection.style.display   = 'none';
+    this.summaryBodyEl.innerHTML        = '';
+    if (this.gtPanel)    this.gtPanel.style.display    = 'none';
+    if (this.gtFeedback) this.gtFeedback.style.display = 'none';
+    if (this.nextImageBtn) this.nextImageBtn.style.display = 'none';
+    // Las anotaciones se conservan intencionalmente entre imágenes
   }
 
   _resetToUpload() {

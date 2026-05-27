@@ -10,30 +10,40 @@ export class HandEstimator {
     this._landmarker = null;
   }
 
-  async init() {
+  /**
+   * @param {'VIDEO'|'IMAGE'} mode
+   *   VIDEO — tracking temporal entre frames (cámara/vídeo).
+   *   IMAGE — sin estado entre llamadas; determinista para imágenes estáticas.
+   */
+  async init(mode = 'VIDEO') {
     const vision = await getVisionResolver();
     this._landmarker = await HandLandmarker.createFromOptions(vision, {
       baseOptions: {
         modelAssetPath: MODEL_URL,
         delegate: 'GPU',
       },
-      runningMode: 'VIDEO',
+      runningMode: mode,
       numHands: 2,
       minHandDetectionConfidence: 0.5,
       minHandPresenceConfidence:  0.5,
       minTrackingConfidence:      0.5,
     });
+    this._mode = mode;
   }
 
   /**
-   * Detección sincrónica sobre un frame de vídeo.
-   * @param {HTMLVideoElement} video
+   * Detección sincrónica.
+   * En modo VIDEO se requiere timestampMs monotónico (performance.now()).
+   * En modo IMAGE el timestamp se ignora.
+   * @param {HTMLVideoElement|HTMLImageElement|HTMLCanvasElement} source
    * @param {number} timestampMs
    * @returns {HandLandmarkerResult | null}
    */
-  detect(video, timestampMs) {
+  detect(source, timestampMs) {
     if (!this._landmarker) return null;
-    return this._landmarker.detectForVideo(video, timestampMs);
+    return this._mode === 'IMAGE'
+      ? this._landmarker.detect(source)
+      : this._landmarker.detectForVideo(source, timestampMs);
   }
 
   get isReady() { return this._landmarker !== null; }
