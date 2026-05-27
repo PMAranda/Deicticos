@@ -72,7 +72,18 @@ fase3/
   index.html            # Standalone fase 3 (sin OpenCV)
   style.css
   main.js
+fase4/
+  index.html            # Standalone fase 4 (requiere OpenCV para homografía)
+  style.css
+  main.js               # Combina fase 1 (calibración) + fase 3 (pointing) + fase 4 (grounding)
 ```
+
+**Módulos fase 4 — grounding espacial (`src/modules/grounding/`)**:
+- `interseccion.js` — `raySegmentIntersect()` + `rayPolygonIntersect()`: geometría 2D pura, rayo vs cuadrilátero del tablero
+- `grounding.js` — `BoardGrounding`: rayo (píxeles cámara) → intersección → homografía → coords normalizadas + EMA del impacto
+- `metricas.js` — `ImpactTracker`: jitter espacial del impacto (ventana 30 frames), cambios de región, tasa de impacto
+- `renderer.js` — `GroundingRenderer`: rayo extendido en vista cámara, impacto + trail en vista tablero, panel de métricas
+- `logger.js` — `GroundingSessionLogger`: grabación frame a frame y exportación CSV
 
 ## Convenciones clave
 
@@ -108,5 +119,7 @@ La confidencia incorpora un tercer factor (elevScore) que vale 0 cerca del umbra
 **Suavizado temporal EMA:** `PointingEstimator` aplica α=0.3 sobre el vector fusionado cuando hay gesto raw activo. Sin gesto raw, el vector decae ×0.9/frame.
 
 **Histéresis asimétrica:** `PointingEstimator` mantiene `_accumConf` acumulado entre frames. Sube `CONF_RISE=0.40×confidence` por frame con gesto y baja `CONF_FALL=0.10` por frame sin él. Activa en `_accumConf ≥ 0.45` (~2 frames con conf≥0.6) y desactiva en `_accumConf < 0.20` (~7 frames desde máximo). El resultado expone `isGesture` (histéresis) y `rawIsGesture` (frame a frame). La evaluación de imágenes usa `rawIsGesture`/`rawConfidence` para que la anotación refleje la detección directa del frame.
+
+**Grounding espacial (fase 4):** `BoardGrounding.project(result, W, H, corners)` convierte el rayo de pointing en coordenadas normalizadas [0,1]² del tablero. Flujo: (1) escala origen y dirección de [0,1] a píxeles (corrigiendo aspecto de imagen), (2) `rayPolygonIntersect` con las 4 esquinas calibradas, (3) `homography.transformPoint` al plano rectificado, (4) normaliza y clasifica región con `CoordinateSystem`. El resultado incluye `hitPx` (píxeles cámara), `rectPx` (píxeles rectificados), `xn/yn` (normalized), `smoothed` (EMA α=0.25) y `region` (label de rejilla 3×3). Si el rayo no intersecta el tablero, devuelve `null`.
 
 **Condición experimental fase 3:** añade campo `heuristic` (nombre de la config, p.ej. `config_base`) a los metadatos de sesión. Permite comparar distintas configuraciones de pesos en el CSV exportado.

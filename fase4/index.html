@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fase 4 — Grounding Espacial</title>
+  <link rel="stylesheet" href="style.css" />
+  
+  <script>
+    window.addEventListener('error', function(e) {
+      const statusEl = document.getElementById('status');
+      if (statusEl) {
+        statusEl.textContent = 'Error Crítico: ' + e.message;
+        statusEl.style.color = '#FF4D4D';
+      }
+    });
+  </script>
+</head>
+<body>
+
+  <header>
+    <h1>Grounding Espacial Deíctico</h1>
+    <p class="subtitle">Fase 4 — Vector de pointing proyectado sobre la pizarra calibrada</p>
+    <nav class="phase-nav">
+      <a href="../fase3/index.html" class="nav-link">← Fase 3</a>
+    </nav>
+  </header>
+
+  <main>
+
+    <div class="control-bar">
+      <p id="status" class="status">Cargando modelos…</p>
+      <div class="control-buttons">
+        <button id="calibrateBtn" class="btn btn-primary" disabled>Calibrar pizarra</button>
+        <button id="resetBtn"     class="btn btn-ghost"   disabled>Resetear</button>
+        <button id="recordBtn"    class="btn btn-record"  disabled>● Grabar</button>
+        <button id="exportBtn"    class="btn btn-export"  disabled>↓ CSV</button>
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <div id="calibBadge"    class="badge badge-warn">Sin calibrar</div>
+      <div id="trackingBadge" class="badge badge-off">Sin detección</div>
+      <div id="pointingBadge" class="badge badge-off">Sin gesto</div>
+      <div id="impactBadge"   class="badge badge-off">Sin impacto</div>
+      <div id="fpsBadge"      class="badge">— FPS</div>
+    </div>
+
+    <div class="views-row">
+
+      <section class="view-panel">
+        <h2>Vista cámara <span class="view-hint">· rayo de pointing y punto de impacto</span></h2>
+        <canvas id="rawCanvas"></canvas>
+        <p class="canvas-hint">Calibra primero haciendo clic en las 4 esquinas de la pizarra (↖ ↗ ↘ ↙)</p>
+      </section>
+
+      <section class="view-panel">
+        <h2>Espacio tablero <span class="view-hint">· coordenadas normalizadas [0,1]²</span></h2>
+        <canvas id="boardCanvas"></canvas>
+      </section>
+
+    </div>
+
+    <div class="tables-row">
+
+      <section class="table-section">
+        <h3>Grounding</h3>
+        <table class="metrics-table">
+          <thead><tr><th>Parámetro</th><th>Valor</th></tr></thead>
+          <tbody id="groundingMetrics">
+            <tr><td colspan="2" class="empty">Sin datos</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="table-section">
+        <h3>Pointing (Fase 3)</h3>
+        <table class="metrics-table">
+          <thead><tr><th>Parámetro</th><th>Valor</th></tr></thead>
+          <tbody id="pointingMetrics">
+            <tr><td colspan="2" class="empty">Sin datos</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+    </div>
+
+    <section id="summarySection" class="summary-section" style="display:none">
+      <h3>Resumen de sesión</h3>
+      <table class="metrics-table">
+        <thead><tr><th>Métrica</th><th>Valor</th></tr></thead>
+        <tbody id="summaryBody"></tbody>
+      </table>
+    </section>
+
+  </main>
+
+  <video id="video" playsinline muted style="display:none"></video>
+
+  <script>
+    var Module = {
+      onRuntimeInitialized: function () {
+        // Aseguramos que 'cv' esté disponible globalmente
+        window.cvReady = true;
+        window.cv = cv; 
+        
+        // ---------------------------------------------------------
+        // PARCHE PARA EL ISSUE #5282: 
+        // Destruimos la variable global 'Module' tras cargar OpenCV.
+        // Esto evita que el entorno WASM de MediaPipe intente 
+        // fusionarse con el de OpenCV y congele el navegador.
+        // ---------------------------------------------------------
+        window.Module = undefined;
+        delete window.Module;
+        
+        // Avisamos a main.js de que ya puede arrancar MediaPipe
+        window.dispatchEvent(new Event('opencv-ready'));
+      }
+    };
+  </script>
+  <script defer src="https://docs.opencv.org/4.8.0/opencv.js" 
+          onerror="document.getElementById('status').textContent = 'Error: Falló la descarga de OpenCV. Revisa la conexión o el AdBlock'; document.getElementById('status').style.color='#FF4D4D';">
+  </script>
+  <script type="module" src="main.js"></script>
+</body>
+</html>
