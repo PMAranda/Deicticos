@@ -105,6 +105,8 @@ La confidencia incorpora un tercer factor (elevScore) que vale 0 cerca del umbra
 
 **Jitter angular:** variación frame a frame del ángulo de pointing `|Δθ|` en grados, con corrección wrap-around. Umbrales: < 3°/frame → estable, 3–8° → moderado, > 8° → inestable. `AngularTracker` mantiene ventana de 30 frames igual que `StabilityTracker`.
 
-**Suavizado temporal EMA:** `PointingEstimator` aplica α=0.3 sobre el vector fusionado cuando hay gesto activo. Sin gesto, el vector suavizado decae gradualmente (×0.9/frame) en lugar de resetear abruptamente.
+**Suavizado temporal EMA:** `PointingEstimator` aplica α=0.3 sobre el vector fusionado cuando hay gesto raw activo. Sin gesto raw, el vector decae ×0.9/frame.
+
+**Histéresis asimétrica:** `PointingEstimator` mantiene `_accumConf` acumulado entre frames. Sube `CONF_RISE=0.40×confidence` por frame con gesto y baja `CONF_FALL=0.10` por frame sin él. Activa en `_accumConf ≥ 0.45` (~2 frames con conf≥0.6) y desactiva en `_accumConf < 0.20` (~7 frames desde máximo). El resultado expone `isGesture` (histéresis) y `rawIsGesture` (frame a frame). La evaluación de imágenes usa `rawIsGesture`/`rawConfidence` para que la anotación refleje la detección directa del frame.
 
 **Condición experimental fase 3:** añade campo `heuristic` (nombre de la config, p.ej. `config_base`) a los metadatos de sesión. Permite comparar distintas configuraciones de pesos en el CSV exportado.

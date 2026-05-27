@@ -213,11 +213,18 @@ class EvalApp {
     this.sparkCanvas.width  = W;
     this.sparkCanvas.height = SPARKLINE_H;
 
-    // Modo IMAGE: sin estado temporal → resultado determinista para la misma imagen
+    // Modo IMAGE: sin estado temporal → resultado determinista para la misma imagen.
+    // Se usan rawIsGesture/rawConfidence para evaluar la detección directa del frame,
+    // sin que la histéresis acumulada de frames anteriores distorsione la anotación.
     const poseRes  = this.poseImg.detect(img);
     const handsRes = this.handsImg.detect(img);
     const { pose, hands } = extractDeicticLandmarks(poseRes, handsRes);
-    const result = this.pointingEst.estimate(pose, hands, this._side);
+    const rawResult = this.pointingEst.estimate(pose, hands, this._side);
+    const result = {
+      ...rawResult,
+      isGesture:  rawResult.rawIsGesture,
+      confidence: rawResult.rawConfidence,
+    };
     this.angTracker.update(result);
 
     this.ctx.drawImage(img, 0, 0);
