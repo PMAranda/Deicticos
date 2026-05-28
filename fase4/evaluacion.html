@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Evaluación — Grounding Fase 4</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="evaluacion.css" />
+  <script>
+    window.addEventListener('error', function(e) {
+      const el = document.getElementById('status');
+      if (el) { el.textContent = 'Error: ' + e.message; el.style.color = '#FF4D4D'; }
+    });
+  </script>
+</head>
+<body>
+
+  <header>
+    <h1>Evaluación de Grounding Deíctico</h1>
+    <p class="subtitle">Fase 4 — Proyección sobre pizarra calibrada · Imagen o vídeo subido</p>
+    <nav class="eval-nav">
+      <a href="index.html" class="nav-link">← Modo cámara en vivo</a>
+    </nav>
+  </header>
+
+  <main>
+
+    <!-- Condiciones -->
+    <section class="conditions-panel">
+      <div class="condition-group">
+        <span class="condition-label">Brazo activo</span>
+        <button class="tag active" data-group="side" data-value="auto">Auto</button>
+        <button class="tag"        data-group="side" data-value="Right">Derecho</button>
+        <button class="tag"        data-group="side" data-value="Left">Izquierdo</button>
+      </div>
+    </section>
+
+    <!-- Zona de subida -->
+    <section id="dropZone" class="drop-zone">
+      <div class="drop-icon">↑</div>
+      <p class="drop-label">Arrastra un vídeo o imagen aquí</p>
+      <p class="drop-hint">o haz clic · MP4, MOV, WebM, JPG, PNG…</p>
+      <input type="file" id="fileInput" accept="video/*,image/*" style="display:none" />
+    </section>
+
+    <!-- Barra de fuente -->
+    <div id="sourceBar" class="source-bar" style="display:none">
+      <span id="fileTypeTag"  class="source-type-tag">VÍDEO</span>
+      <span id="fileName"     class="source-name">—</span>
+      <span id="fileDuration" class="source-duration">—</span>
+      <span id="frameInfo"    class="source-frame">—</span>
+      <button id="reloadBtn"  class="reload-btn">✕ Cambiar archivo</button>
+    </div>
+
+    <!-- Barra de estado -->
+    <div class="status-bar">
+      <p   id="status"        class="status">Cargando modelos y OpenCV…</p>
+      <div id="calibBadge"    class="badge badge-warn">Sin calibrar</div>
+      <div id="trackingBadge" class="badge badge-off">Sin detección</div>
+      <div id="impactBadge"   class="badge badge-off">Sin impacto</div>
+      <div id="fpsBadge"      class="badge">— FPS</div>
+    </div>
+
+    <!-- Panel de calibración -->
+    <div id="calibPanel" class="calib-panel" style="display:none">
+      <span class="calib-icon">◎</span>
+      <span id="calibInstructions">Haz clic en las 4 esquinas de la pizarra: ↖ ↗ ↘ ↙</span>
+      <button id="recalibBtn" class="btn btn-ghost" style="display:none">↺ Recalibrar</button>
+    </div>
+
+    <!-- Vistas: cámara + tablero -->
+    <div id="viewsRow" class="views-row" style="display:none">
+      <section class="view-panel main-panel">
+        <h2>Vista de cámara <span class="view-hint">· esqueleto, pointing, rayo al tablero</span></h2>
+        <canvas id="mainCanvas"></canvas>
+      </section>
+      <section class="view-panel board-panel">
+        <h2>Vista tablero <span class="view-hint">· impacto en [0,1]²</span></h2>
+        <canvas id="boardCanvas"></canvas>
+      </section>
+    </div>
+
+    <!-- Controles de vídeo -->
+    <div id="videoControls" class="video-controls" style="display:none">
+      <button id="playBtn"   class="btn btn-primary">▶ Play</button>
+      <input  id="seekBar"   type="range" min="0" max="1000" value="0" class="seek-bar" />
+      <span   id="timeDisplay" class="time-display">0:00 / 0:00</span>
+      <select id="speedSelect" class="speed-select">
+        <option value="0.25">×0.25</option>
+        <option value="0.5" >×0.5</option>
+        <option value="1.0"  selected>×1.0</option>
+        <option value="2.0" >×2.0</option>
+      </select>
+      <button id="stepBtn" class="btn btn-ghost">⏭ +1 frame</button>
+    </div>
+
+    <!-- Tablas de métricas -->
+    <div id="tablesRow" class="tables-row" style="display:none">
+      <section class="table-section">
+        <h3>Grounding</h3>
+        <table class="metrics-table">
+          <thead><tr><th>Parámetro</th><th>Valor</th></tr></thead>
+          <tbody id="groundingMetrics">
+            <tr><td colspan="2" class="empty">Sin datos</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="table-section">
+        <h3>Pointing (Fase 3)</h3>
+        <table class="metrics-table">
+          <thead><tr><th>Parámetro</th><th>Valor</th></tr></thead>
+          <tbody id="pointingMetrics">
+            <tr><td colspan="2" class="empty">Sin datos</td></tr>
+          </tbody>
+        </table>
+      </section>
+    </div>
+
+    <!-- Resumen de sesión (vídeo) -->
+    <section id="summarySection" class="summary-section" style="display:none">
+      <h3>Resumen de sesión</h3>
+      <table class="metrics-table">
+        <thead><tr><th>Métrica</th><th>Valor</th></tr></thead>
+        <tbody id="summaryBody"></tbody>
+      </table>
+    </section>
+
+  </main>
+
+  <video id="video" playsinline muted style="display:none"></video>
+
+  <script>
+    var Module = {
+      onRuntimeInitialized: function () {
+        window.cvReady = true;
+        window.cv = cv;
+        // Borra window.Module antes de arrancar MediaPipe para evitar conflicto
+        // entre los dos entornos WASM de Emscripten (issue #5282).
+        window.Module = undefined;
+        delete window.Module;
+        window.dispatchEvent(new Event('opencv-ready'));
+      }
+    };
+  </script>
+  <script defer src="https://docs.opencv.org/4.8.0/opencv.js"
+          onerror="document.getElementById('status').textContent='Error: OpenCV no disponible. Revisa la conexión o el AdBlock.';document.getElementById('status').style.color='#FF4D4D';">
+  </script>
+  <script type="module" src="evaluacion_main.js"></script>
+
+</body>
+</html>
