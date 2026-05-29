@@ -83,6 +83,34 @@ class Eval4App {
     this._frameCount  = 0;
     this._impactCount = 0;
 
+    // ── Estado anotación manual ───────────────────────────────────────────────
+    this._annotations        = [];
+    this._currentImageResult = null;
+    this._currentGResult     = null;
+    this._currentFileName    = '';
+    this._pendingGtPointing  = null;
+
+    // ── DOM — anotación ───────────────────────────────────────────────────────
+    this.gtPanel         = document.getElementById('gtPanel');
+    this.gtSystemResult  = document.getElementById('gtSystemResult');
+    this.gtPointingRow   = document.getElementById('gtPointingRow');
+    this.gtImpactRow     = document.getElementById('gtImpactRow');
+    this.gtCoordsRow     = document.getElementById('gtCoordsRow');
+    this.gtYesBtn        = document.getElementById('gtYesBtn');
+    this.gtNoBtn         = document.getElementById('gtNoBtn');
+    this.gtImpactYesBtn  = document.getElementById('gtImpactYesBtn');
+    this.gtImpactNoBtn   = document.getElementById('gtImpactNoBtn');
+    this.gtCoordsYesBtn  = document.getElementById('gtCoordsYesBtn');
+    this.gtCoordsNoBtn   = document.getElementById('gtCoordsNoBtn');
+    this.gtFeedback      = document.getElementById('gtFeedback');
+    this.gtFeedbackText  = document.getElementById('gtFeedbackText');
+    this.nextImageBtn    = document.getElementById('nextImageBtn');
+    this.annotationSection = document.getElementById('annotationSection');
+    this.annotationBodyEl  = document.getElementById('annotationBody');
+    this.annotationStatsEl = document.getElementById('annotationStats');
+    this.exportAnnotBtn    = document.getElementById('exportAnnotBtn');
+    this.clearAnnotBtn     = document.getElementById('clearAnnotBtn');
+
     this.boardCanvas.width  = BOARD_W;
     this.boardCanvas.height = BOARD_H;
 
@@ -146,6 +174,7 @@ class Eval4App {
 
     this.reloadBtn?.addEventListener('click', () => this._resetToUpload());
     this.recalibBtn?.addEventListener('click', () => this._startCalibration());
+    this._bindAnnotationControls();
 
     this.playBtn.addEventListener('click', () => this._togglePlay());
     this.seekBar.addEventListener('input', () => {
@@ -201,6 +230,7 @@ class Eval4App {
     this.sourceBar.style.display = 'flex';
     document.getElementById('fileName').textContent    = file.name;
     document.getElementById('fileTypeTag').textContent = isVideo ? 'VÍDEO' : 'IMAGEN';
+    this._currentFileName = file.name;
 
     this._mode = isVideo ? 'video' : 'image';
     if (isVideo) await this._initVideo(file);
@@ -320,7 +350,7 @@ class Eval4App {
     const poseRes  = this.poseImg.detect(img);
     const handsRes = this.handsImg.detect(img);
     const { pose, hands } = extractDeicticLandmarks(poseRes, handsRes);
-    const rawResult = this.pointingEst.estimate(pose, hands, this._side);
+    const rawResult = this.pointingEst.estimate(pose, hands, this._side, true);
     // Modo IMAGE: usar rawIsGesture/rawConfidence para detección directa sin histéresis
     const result    = { ...rawResult, isGesture: rawResult.rawIsGesture, confidence: rawResult.rawConfidence };
     this.angTracker.update(result);
@@ -339,7 +369,268 @@ class Eval4App {
     this._updateBadges(pose, hands, result, gResult);
     this._updateMetricsTables(result, gResult);
     document.getElementById('frameInfo').textContent = '1 frame';
-    this._setStatus('Imagen analizada.');
+
+    // Guardar resultado y mostrar panel de etiquetado
+    this._currentImageResult = result;
+    this._currentGResult     = gResult;
+    this._showGTPanel(result, gResult);
+  }
+
+  // ── Anotación manual de imágenes ──────────────────────────────────────────
+
+  _bindAnnotationControls() {
+    this.gtYesBtn?.addEventListener('click',       () => this._onGtPointing(true));
+    this.gtNoBtn?.addEventListener('click',        () => this._onGtPointing(false));
+    this.gtImpactYesBtn?.addEventListener('click', () => this._onGtRegion(true));
+    this.gtImpactNoBtn?.addEventListener('click',  () => this._onGtRegion(false));
+    this.gtCoordsYesBtn?.addEventListener('click', () => this._annotate(this._pendingGtPointing, true,  true));
+    this.gtCoordsNoBtn?.addEventListener('click',  () => this._annotate(this._pendingGtPointing, true,  false));
+
+    this.nextImageBtn?.addEventListener('click', () => {
+      this.nextImageBtn.style.display  = 'none';
+      this.gtFeedback.style.display    = 'none';
+      this.gtPanel.style.display       = 'none';
+      this.fileInput.click();
+    });
+
+    this.exportAnnotBtn?.addEventListener('click', () => this._exportAnnotationsCSV());
+    this.clearAnnotBtn?.addEventListener('click', () => {
+      if (!this._annotations.length) return;
+      this._annotations = [];
+      this._updateAnnotationTable();
+      this.exportAnnotBtn.disabled = true;
+      this.annotationStatsEl.innerHTML = '';
+    });
+  }
+
+  _showGTPanel(result, gResult) {
+    if (!this.gtPanel) return;
+
+    const detected = result.isGesture;
+    let label;
+    if (detected && gResult) {
+      label = `Sistema: APUNTA → impacto en ${gResult.region.label} (modo ${result.mode}, conf. ${(result.confidence * 100).toFixed(0)}%)`;
+    } else if (detected && !gResult) {
+      label = `Sistema: APUNTA pero el rayo no alcanza la pizarra (modo ${result.mode}, conf. ${(result.confidence * 100).toFixed(0)}%)`;
+    } else {
+      label = `Sistema: NO APUNTA (razón: ${result.reason ?? '—'})`;
+    }
+
+    this.gtSystemResult.textContent = label;
+    this.gtSystemResult.style.color = detected ? '#4DFF88' : '#FF8C4D';
+
+    this.gtPointingRow.style.display = 'flex';
+    this.gtImpactRow.style.display   = 'none';
+    this.gtCoordsRow.style.display   = 'none';
+    this.gtFeedback.style.display    = 'none';
+    this.nextImageBtn.style.display  = 'none';
+    this._pendingGtPointing          = null;
+    this.gtPanel.style.display       = 'flex';
+    this._setStatus('Imagen analizada — etiqueta si la persona está apuntando.');
+  }
+
+  _onGtPointing(isPointing) {
+    this._pendingGtPointing = isPointing;
+    const detected  = this._currentImageResult?.isGesture ?? false;
+    const hasImpact = !!this._currentGResult;
+
+    if (isPointing && detected && hasImpact) {
+      // Paso 2: preguntar si la región es correcta
+      this.gtPointingRow.style.display = 'none';
+      this.gtImpactRow.style.display   = 'flex';
+    } else {
+      // TP sin impacto → grounding falla automáticamente; FP/FN/TN → no evalúa grounding
+      const regionAuto = (isPointing && detected && !hasImpact) ? false : null;
+      this._annotate(isPointing, regionAuto, null);
+    }
+  }
+
+  _onGtRegion(regionCorrect) {
+    if (regionCorrect) {
+      // Paso 3: preguntar si las coordenadas son precisas dentro de la región
+      this.gtImpactRow.style.display  = 'none';
+      this.gtCoordsRow.style.display  = 'flex';
+    } else {
+      // Región incorrecta → coordenadas también incorrectas por definición
+      this._annotate(this._pendingGtPointing, false, null);
+    }
+  }
+
+  // gtRegionCorrect: true/false/null — null si no aplica (FP, FN, TN)
+  //                                    false automático si TP pero rayo no alcanzó tablero
+  // gtCoordsCorrect: true/false/null — solo se pregunta cuando gtRegionCorrect=true
+  _annotate(gtPointing, gtRegionCorrect, gtCoordsCorrect) {
+    if (!this._currentImageResult) return;
+    const result   = this._currentImageResult;
+    const gResult  = this._currentGResult;
+    const detected = result.isGesture;
+    const correct  = (gtPointing === detected);
+
+    this._annotations.push({
+      filename:        this._currentFileName,
+      gtPointing,
+      detected,
+      correct,
+      hasImpact:       !!gResult,
+      gtRegionCorrect,
+      gtCoordsCorrect,
+      mode:            result.mode           ?? 'lost',
+      confidence:      result.confidence     ?? 0,
+      reason:          result.reason         ?? '—',
+      side:            result.side           ?? '—',
+      region:          gResult?.region?.label ?? null,
+      xn:              gResult?.xn           ?? null,
+      yn:              gResult?.yn           ?? null,
+    });
+
+    this.gtPointingRow.style.display = 'none';
+    this.gtImpactRow.style.display   = 'none';
+    this.gtCoordsRow.style.display   = 'none';
+    this.gtFeedback.style.display    = 'flex';
+    this.nextImageBtn.style.display  = 'inline-block';
+    this.exportAnnotBtn.disabled     = false;
+
+    if (this.gtFeedbackText) {
+      if (correct) {
+        this.gtFeedbackText.textContent = '✓ Detección correcta';
+        this.gtFeedbackText.style.color = '#4DFF88';
+      } else {
+        const tipo = gtPointing && !detected
+          ? 'Falso negativo (no detectó pero sí apuntaba)'
+          : 'Falso positivo (detectó pero no apuntaba)';
+        this.gtFeedbackText.textContent = `✗ ${tipo}`;
+        this.gtFeedbackText.style.color = '#FF4D4D';
+      }
+    }
+
+    this._updateAnnotationStats();
+    this._updateAnnotationTable();
+    if (this.annotationSection) this.annotationSection.style.display = 'block';
+  }
+
+  _updateAnnotationStats() {
+    if (!this.annotationStatsEl || !this._annotations.length) return;
+    const A   = this._annotations;
+    const n   = A.length;
+    const tp  = A.filter(a =>  a.gtPointing &&  a.detected).length;
+    const tn  = A.filter(a => !a.gtPointing && !a.detected).length;
+    const fp  = A.filter(a => !a.gtPointing &&  a.detected).length;
+    const fn  = A.filter(a =>  a.gtPointing && !a.detected).length;
+    const acc = ((tp + tn) / n * 100).toFixed(1);
+    const pre = (tp + fp) ? (tp / (tp + fp) * 100).toFixed(1) : '—';
+    const rec = (tp + fn) ? (tp / (tp + fn) * 100).toFixed(1) : '—';
+    const f1  = (tp + fp) && (tp + fn) && tp
+      ? (2 * tp / (2 * tp + fp + fn) * 100).toFixed(1) : '—';
+
+    // Grounding — solo sobre TPs
+    const tpList = A.filter(a => a.gtPointing && a.detected);
+    const gMiss  = tpList.filter(a => !a.hasImpact).length;
+
+    // Acc. región: TPs evaluados (gtRegionCorrect !== null)
+    const rEval    = tpList.filter(a => a.gtRegionCorrect !== null);
+    const rCorrect = rEval.filter(a => a.gtRegionCorrect === true).length;
+    const rAcc     = rEval.length ? (rCorrect / rEval.length * 100).toFixed(1) : '—';
+
+    // Acc. coordenadas: TPs donde la región fue correcta y se evaluaron coords
+    const cEval    = tpList.filter(a => a.gtRegionCorrect === true && a.gtCoordsCorrect !== null);
+    const cCorrect = cEval.filter(a => a.gtCoordsCorrect === true).length;
+    const cAcc     = cEval.length ? (cCorrect / cEval.length * 100).toFixed(1) : '—';
+
+    this.annotationStatsEl.innerHTML = `
+      <div class="stat-pill">Total <strong>${n}</strong></div>
+      <div class="stat-pill good">Acc. gesto <strong>${acc}%</strong></div>
+      <div class="stat-pill good">Precisión <strong>${pre}%</strong></div>
+      <div class="stat-pill good">Recall <strong>${rec}%</strong></div>
+      <div class="stat-pill good">F1 <strong>${f1}%</strong></div>
+      <div class="stat-pill">TP <strong>${tp}</strong></div>
+      <div class="stat-pill">TN <strong>${tn}</strong></div>
+      <div class="stat-pill warn">FP <strong>${fp}</strong></div>
+      <div class="stat-pill bad">FN <strong>${fn}</strong></div>
+      <div class="stat-pill good" title="Región correcta sobre TPs evaluados (${rEval.length}/${tpList.length})">Acc. región <strong>${rAcc}${rEval.length ? '%' : ''}</strong></div>
+      <div class="stat-pill good" title="Coords precisas sobre TPs con región correcta (${cEval.length}/${rCorrect})">Acc. coords <strong>${cAcc}${cEval.length ? '%' : ''}</strong></div>
+      ${gMiss ? `<div class="stat-pill warn" title="TPs donde el rayo no llegó a la pizarra">Rayo fuera <strong>${gMiss}</strong></div>` : ''}`;
+  }
+
+  _updateAnnotationTable() {
+    if (!this.annotationBodyEl) return;
+    if (!this._annotations.length) {
+      this.annotationBodyEl.innerHTML =
+        '<tr><td colspan="10" class="empty">Sin anotaciones todavía</td></tr>';
+      return;
+    }
+
+    this.annotationBodyEl.innerHTML = [...this._annotations].reverse().map((a, i) => {
+      const idx    = this._annotations.length - i;
+      const gtIcon  = a.gtPointing ? '<span style="color:#4DFF88">Sí</span>' : '<span style="color:#888">No</span>';
+      const detIcon = a.detected   ? '<span style="color:#4DFF88">Sí</span>' : '<span style="color:#888">No</span>';
+      const okColor = a.correct ? '#4DFF88' : '#FF4D4D';
+
+      let impIcon;
+      if (!a.hasImpact && a.gtRegionCorrect === false) {
+        impIcon = '<span style="color:#FFD700">✗ sin rayo</span>';
+      } else if (a.gtRegionCorrect === null) {
+        impIcon = '<span style="color:#333">—</span>';
+      } else if (a.gtRegionCorrect === false) {
+        impIcon = '<span style="color:#FF4D4D">✗ región</span>';
+      } else if (a.gtCoordsCorrect === true) {
+        impIcon = '<span style="color:#4DFF88">✓ preciso</span>';
+      } else if (a.gtCoordsCorrect === false) {
+        impIcon = '<span style="color:#FFD700">~ región ok</span>';
+      } else {
+        impIcon = '<span style="color:#4DFF88">✓ región ok</span>';
+      }
+
+      const mc = { full:'#4DFF88', partial:'#FFD700', fallback:'#FF8C4D', lost:'#555' };
+      const conf  = `${(a.confidence * 100).toFixed(0)}%`;
+      const fname = a.filename.length > 22 ? `…${a.filename.slice(-20)}` : a.filename;
+
+      return `<tr>
+        <td style="color:#555">${idx}</td>
+        <td title="${a.filename}" style="color:#9ab4f5">${fname}</td>
+        <td>${gtIcon}</td>
+        <td>${detIcon}</td>
+        <td style="color:${okColor};font-weight:700">${a.correct ? '✓' : '✗'}</td>
+        <td>${impIcon}</td>
+        <td style="color:#FFD700">${a.region ?? '—'}</td>
+        <td style="color:${mc[a.mode] ?? '#888'}">${a.mode}</td>
+        <td>${conf}</td>
+        <td style="color:${a.reason === 'ok' ? '#4DFF88' : '#FF8C4D'}">${a.reason}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  _exportAnnotationsCSV() {
+    if (!this._annotations.length) return;
+    const header = [
+      'Imagen', 'Apuntando_GT', 'Detectado', 'Gesto_Correcto',
+      'Tiene_Impacto', 'Región_Correcta', 'Coords_Precisas', 'Región',
+      'X_norm', 'Y_norm', 'Modo', 'Confianza(%)', 'Razón', 'Brazo',
+    ].join(',');
+
+    const rows = [header, ...this._annotations.map(a => [
+      `"${a.filename}"`,
+      a.gtPointing ? 1 : 0,
+      a.detected   ? 1 : 0,
+      a.correct    ? 1 : 0,
+      a.hasImpact  ? 1 : 0,
+      a.gtRegionCorrect !== null ? (a.gtRegionCorrect ? 1 : 0) : '',
+      a.gtCoordsCorrect !== null ? (a.gtCoordsCorrect ? 1 : 0) : '',
+      `"${a.region ?? ''}"`,
+      a.xn != null ? a.xn.toFixed(4) : '',
+      a.yn != null ? a.yn.toFixed(4) : '',
+      a.mode,
+      (a.confidence * 100).toFixed(1),
+      `"${a.reason}"`,
+      a.side,
+    ].join(','))];
+
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+    const url  = URL.createObjectURL(blob);
+    const el   = document.createElement('a');
+    el.href    = url;
+    el.download = `eval_grounding_${Date.now()}.csv`;
+    el.click();
+    URL.revokeObjectURL(url);
   }
 
   // ── Detección — vídeo ──────────────────────────────────────────────────────
@@ -520,6 +811,14 @@ class Eval4App {
     this._updateCalibBadge(false);
     this.mainCtx.clearRect(0, 0, this.mainCanvas.width, this.mainCanvas.height);
     this.boardCtx.clearRect(0, 0, BOARD_W, BOARD_H);
+    // Estado de anotación de la imagen actual (las anotaciones acumuladas se conservan)
+    this._currentImageResult = null;
+    this._currentGResult     = null;
+    this._pendingGtPointing  = null;
+    if (this.gtPanel)      this.gtPanel.style.display      = 'none';
+    if (this.gtFeedback)   this.gtFeedback.style.display   = 'none';
+    if (this.gtCoordsRow)  this.gtCoordsRow.style.display  = 'none';
+    if (this.nextImageBtn) this.nextImageBtn.style.display  = 'none';
   }
 
   _resetToUpload() {

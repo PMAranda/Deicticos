@@ -50,11 +50,30 @@ export function extractArmVectors(poseLandmarks, hands, side) {
   const wristP   = poseLandmarks?.[IDX.wrist]    ?? null;
   const indexP   = poseLandmarks?.[IDX.index]    ?? null;
 
-  // Puntos de Hands (muñeca e índice tip)
-  const handLms  = hands?.[side] ?? null;
-  const wristH   = handLms ? handLms[HAND_IDX.WRIST]     : null;
-  const indexH   = handLms ? handLms[HAND_IDX.INDEX_TIP] : null;
-  const hasHands = handLms !== null;
+  // Selección de la mano por proximidad geométrica a wristP.
+  // Pose usa convención anatómica (Left/Right del cuerpo) y Hands usa perspectiva
+  // de imagen, por lo que la etiqueta puede no coincidir. Se busca entre ambas manos
+  // la que tenga la muñeca más cercana a wristP dentro del umbral de coherencia.
+  // Si wristP no es fiable, se usa la mano etiquetada como `side` sin verificación.
+  const PROX_THRESH = 0.15;
+  let bestHandLms = null;
+
+  if (wristP && (wristP.visibility ?? 1) >= 0.3) {
+    let bestDist = PROX_THRESH;
+    for (const lms of [hands?.['Left'], hands?.['Right']]) {
+      if (!lms) continue;
+      const wH = lms[HAND_IDX.WRIST];
+      if (!wH) continue;
+      const d = Math.hypot(wH.x - wristP.x, wH.y - wristP.y);
+      if (d < bestDist) { bestDist = d; bestHandLms = lms; }
+    }
+  } else {
+    bestHandLms = hands?.[side] ?? null;
+  }
+
+  const wristH   = bestHandLms ? bestHandLms[HAND_IDX.WRIST]     : null;
+  const indexH   = bestHandLms ? bestHandLms[HAND_IDX.INDEX_TIP] : null;
+  const hasHands = wristH !== null;
 
   // Visibilidad de cada punto clave
   const vis = {

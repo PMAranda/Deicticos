@@ -219,7 +219,7 @@ class EvalApp {
     const poseRes  = this.poseImg.detect(img);
     const handsRes = this.handsImg.detect(img);
     const { pose, hands } = extractDeicticLandmarks(poseRes, handsRes);
-    const rawResult = this.pointingEst.estimate(pose, hands, this._side);
+    const rawResult = this.pointingEst.estimate(pose, hands, this._side, true);
     const result = {
       ...rawResult,
       isGesture:  rawResult.rawIsGesture,

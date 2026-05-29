@@ -116,12 +116,60 @@
       </section>
     </div>
 
+    <!-- Panel de etiquetado GT (imágenes) -->
+    <div id="gtPanel" class="gt-panel" style="display:none">
+      <div id="gtSystemResult" class="gt-system-result">—</div>
+      <div id="gtPointingRow" class="gt-row">
+        <span class="gt-label">¿La persona está apuntando?</span>
+        <button id="gtYesBtn" class="gt-btn gt-yes">Sí</button>
+        <button id="gtNoBtn"  class="gt-btn gt-no">No</button>
+      </div>
+      <div id="gtImpactRow" class="gt-row" style="display:none">
+        <span class="gt-label">¿El impacto cae en la región correcta?</span>
+        <button id="gtImpactYesBtn" class="gt-btn gt-yes">Sí</button>
+        <button id="gtImpactNoBtn"  class="gt-btn gt-no">No</button>
+      </div>
+      <div id="gtCoordsRow" class="gt-row" style="display:none">
+        <span class="gt-label">¿Las coordenadas son precisas dentro de la región?</span>
+        <button id="gtCoordsYesBtn" class="gt-btn gt-yes">Sí</button>
+        <button id="gtCoordsNoBtn"  class="gt-btn gt-no">No</button>
+      </div>
+      <div id="gtFeedback" class="gt-feedback" style="display:none">
+        <span id="gtFeedbackText"></span>
+        <button id="nextImageBtn" class="btn btn-ghost" style="display:none">→ Siguiente imagen</button>
+      </div>
+    </div>
+
     <!-- Resumen de sesión (vídeo) -->
     <section id="summarySection" class="summary-section" style="display:none">
       <h3>Resumen de sesión</h3>
       <table class="metrics-table">
         <thead><tr><th>Métrica</th><th>Valor</th></tr></thead>
         <tbody id="summaryBody"></tbody>
+      </table>
+    </section>
+
+    <!-- Tabla de anotaciones acumuladas (imágenes) -->
+    <section id="annotationSection" class="annotation-section" style="display:none">
+      <div class="annotation-header">
+        <h3>Anotaciones acumuladas</h3>
+        <div class="annotation-actions">
+          <button id="exportAnnotBtn" class="btn btn-ghost" disabled>↓ Exportar CSV</button>
+          <button id="clearAnnotBtn"  class="btn btn-ghost">✕ Limpiar</button>
+        </div>
+      </div>
+      <div id="annotationStats" class="annotation-stats"></div>
+      <table class="metrics-table annot-table">
+        <thead>
+          <tr>
+            <th>#</th><th>Imagen</th><th>Apunta GT</th><th>Detectado</th>
+            <th>Gesto</th><th>Impacto</th><th>Región</th>
+            <th>Modo</th><th>Conf.</th><th>Razón</th>
+          </tr>
+        </thead>
+        <tbody id="annotationBody">
+          <tr><td colspan="10" class="empty">Sin anotaciones todavía</td></tr>
+        </tbody>
       </table>
     </section>
 

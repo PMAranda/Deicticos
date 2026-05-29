@@ -6,35 +6,82 @@ import { normalize2D } from './vectores.js';
 const EMA_ALPHA = 0.3;   // suavizado temporal del vector
 
 // ── Histéresis asimétrica ──────────────────────────────────────────────────
-// Activación rápida (~2 frames con gesto claro) y desactivación lenta
-// (~7 frames desde confianza máxima) para absorber pérdidas temporales de tracking.
-const CONF_RISE            = 0.40;  // subida de confianza acumulada por frame con gesto
-const CONF_FALL            = 0.10;  // caída por frame sin gesto (asimétrica — más lenta)
-const ACTIVATION_THRESHOLD = 0.45;  // acumulado mínimo para activar el gesto
-const HOLD_THRESHOLD       = 0.20;  // acumulado mínimo para mantenerse activo
+const CONF_RISE            = 0.40;
+const CONF_FALL            = 0.10;
+const ACTIVATION_THRESHOLD = 0.45;
+const HOLD_THRESHOLD       = 0.20;
+
+// ── Estabilidad de Hands ───────────────────────────────────────────────────
+// Hands solo se usa para refinamiento direccional cuando lleva suficientes
+// frames seguidos con wristH coherente con wristP (validado por vectores.js).
+// Activación lenta (evita saltos en cuanto aparece la mano) y desactivación
+// más rápida (reacciona a pérdidas de tracking sin inercia excesiva).
+const HANDS_WINDOW     = 10;  // ventana de frames para evaluar estabilidad
+const HANDS_MIN_STABLE =  6;  // mínimo de frames válidos para activar Hands
 
 export class PointingEstimator {
   constructor() {
-    this._smoothed      = null;   // vector EMA suavizado
-    this._accumConf     = 0;      // confianza acumulada (histéresis)
-    this._gestureActive = false;  // estado filtrado por histéresis
-    this._lastReason    = 'lost'; // última razón válida cuando había gesto
+    this._smoothed      = null;
+    this._accumConf     = 0;
+    this._gestureActive = false;
+    this._lastReason    = 'lost';
+    // Tracker de estabilidad de Hands
+    this._handStableFrames = 0;
+    this._lastSide         = null;
   }
 
   /**
-   * Estima el vector de pointing para el frame actual con histéresis temporal.
-   * Para imágenes estáticas usa `rawIsGesture`/`rawConfidence` (sin histéresis).
+   * Estima el vector de pointing con arquitectura jerárquica:
+   *   Fase 1 — Pose detecta el gesto y selecciona el brazo (siempre activo).
+   *   Fase 2 — Hands refina la dirección solo cuando lleva ≥ HANDS_MIN_STABLE
+   *             frames con wristH coherente con wristP; de lo contrario fallback Pose.
+   *
    * @param {Array|null}            poseLandmarks
    * @param {Object}                hands  - { Left, Right }
    * @param {'Right'|'Left'|'auto'} side
+   * @param {boolean}               singleFrame - true en imágenes estáticas: omite el
+   *                                              tracker temporal y activa Hands si está
+   *                                              disponible en el frame actual.
    * @returns {PointingResult}
    */
-  estimate(poseLandmarks, hands, side = 'auto') {
+  estimate(poseLandmarks, hands, side = 'auto', singleFrame = false) {
+    // ── Fase 1: selección del brazo — solo Pose ───────────────────────────────
     const activeSide = side === 'auto'
-      ? detectActiveSide(poseLandmarks, hands)
+      ? detectActiveSide(poseLandmarks)   // Hands no interviene aquí
       : side;
 
-    const armData = extractArmVectors(poseLandmarks, hands, activeSide);
+    // Resetear estabilidad de Hands si cambia el brazo activo
+    if (activeSide !== this._lastSide) {
+      this._handStableFrames = 0;
+      this._lastSide         = activeSide;
+    }
+
+    // ── Fase 2: evaluar estabilidad de Hands para el brazo activo ─────────────
+    // extractArmVectors aplica internamente la verificación de proximidad
+    // wristH vs wristP; hasHands=true solo si son coherentes (mismo brazo).
+    const probeData = extractArmVectors(poseLandmarks, hands, activeSide);
+
+    // En singleFrame (imagen estática) no hay historia temporal: Hands se activa
+    // directamente si está disponible en este frame (pasa la verificación de proximidad).
+    // En vídeo/cámara se requiere estabilidad sostenida para evitar saltos.
+    let handsReliable;
+    if (singleFrame) {
+      handsReliable = probeData.hasHands;
+    } else {
+      if (probeData.hasHands) {
+        this._handStableFrames = Math.min(this._handStableFrames + 1, HANDS_WINDOW);
+      } else {
+        this._handStableFrames = Math.max(0, this._handStableFrames - 1);
+      }
+      handsReliable = this._handStableFrames >= HANDS_MIN_STABLE;
+    }
+
+    // ── Fase 3: dirección con fuente efectiva ─────────────────────────────────
+    // Si Hands es estable, usar datos completos (ya validados en probeData).
+    // Si no, recalcular solo con Pose para evitar contaminación direccional.
+    const armData = handsReliable
+      ? probeData
+      : extractArmVectors(poseLandmarks, null, activeSide);
 
     const seVec = armData.vectors.shoulderElbow;
     const ewVec = armData.vectors.elbowWrist;
@@ -48,10 +95,14 @@ export class PointingEstimator {
       armData.vectors,
       armData.visibility,
       armData.hasHands,
+      handsReliable,
     );
 
-    const shoulder = armData.points.shoulder;
-    const origin   = shoulder ? { x: shoulder.x, y: shoulder.y } : null;
+    // Origen del rayo: punto distal más preciso disponible.
+    // wristH (Hands, ya validada por proximidad) → wristP (Pose) → shoulder (último recurso).
+    // Cuando handsReliable=false, armData.points.wristH es null y el fallback es automático.
+    const originPt = armData.points.wristH ?? armData.points.wrist ?? armData.points.shoulder;
+    const origin   = originPt ? { x: originPt.x, y: originPt.y } : null;
 
     // ── Confianza acumulada + histéresis asimétrica ───────────────────────────
     if (validation.isGesture) {
@@ -108,14 +159,18 @@ export class PointingEstimator {
       origin,
       armData,
       side:          activeSide,
+      handsReliable,
+      handStability: this._handStableFrames / HANDS_WINDOW,
     };
   }
 
   reset() {
-    this._smoothed      = null;
-    this._accumConf     = 0;
-    this._gestureActive = false;
-    this._lastReason    = 'lost';
+    this._smoothed         = null;
+    this._accumConf        = 0;
+    this._gestureActive    = false;
+    this._lastReason       = 'lost';
+    this._handStableFrames = 0;
+    this._lastSide         = null;
   }
 }
 
@@ -132,7 +187,9 @@ export class PointingEstimator {
  * @property {{x,y}|null}     smoothed       último vector EMA
  * @property {number}         extensionAngle grados
  * @property {Object}         weights        pesos activos normalizados
- * @property {{x,y}|null}     origin         posición del hombro en coords normalizadas
+ * @property {{x,y}|null}     origin         origen del rayo: wristH → wristP → shoulder
  * @property {Object}         armData        datos del brazo (extractArmVectors)
  * @property {'Right'|'Left'} side           brazo activo
+ * @property {boolean}        handsReliable  true cuando Hands lleva ≥ HANDS_MIN_STABLE frames estables
+ * @property {number}         handStability  [0,1] fracción de la ventana con Hands válido
  */

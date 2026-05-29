@@ -1,5 +1,4 @@
-import { POSE_IDX } from '../estimacion_corporal/landmarks.js';
-import { computeExtensionAngle, normalize2D } from './vectores.js';
+import { computeExtensionAngle, normalize2D, extractArmVectors } from './vectores.js';
 
 const EXT_ANGLE_REF     = 150;   // grados — referencia para escala de extScore (0°→1, 150°+→0)
 const MIN_PROXIMAL_VIS  = 0.4;   // visibilidad mínima de hombro y codo
@@ -84,41 +83,37 @@ export function validateGesture(armData, extensionAngle) {
 }
 
 /**
- * Detecta automáticamente el brazo más extendido / activo.
- * Penaliza brazos que cuelgan hacia abajo para no elegir el brazo relajado.
+ * Detecta el brazo activo usando ÚNICAMENTE Pose como fuente de verdad semántica.
+ * Hands no interviene en la selección — solo en el refinamiento direccional
+ * (gestionado por PointingEstimator con su tracker de estabilidad manual).
+ *
+ * Scoring de 2 niveles:
+ *   gesto validado por Pose → 1.0 + confidence
+ *   sin gesto               → visBase × 0.3  (desempate por visibilidad básica)
+ *
  * @param {Array|null} poseLandmarks
- * @param {Object}     hands          - { Left, Right }
  * @returns {'Right'|'Left'}
  */
-export function detectActiveSide(poseLandmarks, hands) {
+export function detectActiveSide(poseLandmarks) {
   if (!poseLandmarks) return 'Right';
 
-  const score = (side) => {
-    const isRight = side === 'Right';
-    const sh = poseLandmarks[isRight ? POSE_IDX.RIGHT_SHOULDER : POSE_IDX.LEFT_SHOULDER];
-    const el = poseLandmarks[isRight ? POSE_IDX.RIGHT_ELBOW    : POSE_IDX.LEFT_ELBOW];
-    const wr = poseLandmarks[isRight ? POSE_IDX.RIGHT_WRIST    : POSE_IDX.LEFT_WRIST];
+  const scoreForSide = (side) => {
+    const armData = extractArmVectors(poseLandmarks, null, side);
+    const { vectors, visibility } = armData;
 
-    const visBase = ((sh?.visibility ?? 0) + (el?.visibility ?? 0) + (wr?.visibility ?? 0)) / 3;
-    const hasHand = hands?.[side] != null ? 0.15 : 0;
+    const seVec = vectors.shoulderElbow;
+    const ewVec = vectors.elbowWrist;
+    const extensionAngle = (seVec && ewVec)
+      ? computeExtensionAngle(seVec, ewVec)
+      : 180;
 
-    // Penalizar si la muñeca está significativamente por debajo del hombro
-    // (brazo colgante): resta hasta 0.2 según cuánto caiga
-    let hangPenalty = 0;
-    if (sh && wr) {
-      const drop = wr.y - sh.y;   // positivo = muñeca más baja que hombro en imagen
-      if (drop > 0.1) hangPenalty = Math.min(0.2, drop);
-    }
+    const { isGesture, confidence } = validateGesture(armData, extensionAngle);
 
-    // Bonus si el codo está levantado respecto al hombro
-    let elevationBonus = 0;
-    if (sh && el) {
-      const dy = sh.y - el.y;
-      if (dy > 0.05) elevationBonus = 0.1;
-    }
+    if (isGesture) return 1.0 + confidence;
 
-    return visBase + hasHand + elevationBonus - hangPenalty;
+    const visBase = (visibility.shoulder + visibility.elbow) / 2;
+    return visBase * 0.3;
   };
 
-  return score('Right') >= score('Left') ? 'Right' : 'Left';
+  return scoreForSide('Right') >= scoreForSide('Left') ? 'Right' : 'Left';
 }

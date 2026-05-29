@@ -1,14 +1,20 @@
 import { normalize2D, scale2D, add2D, magnitude2D } from './vectores.js';
 
-// Pesos base de la fusión jerárquica.
-// Proximales (shoulderElbow, shoulderWrist) aportan estabilización global;
-// distales (elbowWrist, wristIndex) refinan la dirección, especialmente en
-// gestos laterales donde el hombro como referencia subestimaría la desviación.
+// Pesos cuando Hands NO es fiable: el brazo domina la dirección.
 const BASE_WEIGHTS = {
   shoulderElbow: 0.35,
   shoulderWrist: 0.15,
   elbowWrist:    0.35,
   wristIndex:    0.15,
+};
+
+// Pesos cuando Hands ES fiable: el dedo índice domina.
+// El brazo actúa como estabilizador para absorber jitter del dedo.
+const HANDS_WEIGHTS = {
+  shoulderElbow: 0.10,
+  shoulderWrist: 0.05,
+  elbowWrist:    0.25,
+  wristIndex:    0.60,
 };
 
 /**
@@ -25,7 +31,7 @@ const BASE_WEIGHTS = {
  * @param {boolean} hasHands
  * @returns {{ vector: {x,y}|null, weights: Object, mode: string }}
  */
-export function fuseVectors(vectors, visibility, hasHands) {
+export function fuseVectors(vectors, visibility, hasHands, handsReliable = false) {
   const VIS_MIN   = 0.4;   // visibilidad mínima para usar un landmark
   const VIS_INDEX = 0.35;  // umbral más permisivo para el índice (Hands es más ruidoso)
 
@@ -44,12 +50,15 @@ export function fuseVectors(vectors, visibility, hasHands) {
   else if (useSW || useEW)        mode = 'partial';
   else                            mode = 'fallback';
 
-  // Construir mapa de vectores activos con sus pesos base
+  // Seleccionar tabla de pesos según fiabilidad de Hands
+  const W = handsReliable ? HANDS_WEIGHTS : BASE_WEIGHTS;
+
+  // Construir mapa de vectores activos con sus pesos
   const active = {};
-  active.shoulderElbow = BASE_WEIGHTS.shoulderElbow;
-  if (useSW)    active.shoulderWrist = BASE_WEIGHTS.shoulderWrist;
-  if (useEW)    active.elbowWrist    = BASE_WEIGHTS.elbowWrist;
-  if (useIndex) active.wristIndex    = BASE_WEIGHTS.wristIndex;
+  active.shoulderElbow = W.shoulderElbow;
+  if (useSW)    active.shoulderWrist = W.shoulderWrist;
+  if (useEW)    active.elbowWrist    = W.elbowWrist;
+  if (useIndex) active.wristIndex    = W.wristIndex;
 
   // Redistribuir pesos para que sumen 1
   const total = Object.values(active).reduce((a, b) => a + b, 0);
