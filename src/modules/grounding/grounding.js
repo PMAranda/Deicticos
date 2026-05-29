@@ -2,6 +2,10 @@ import { rayPolygonIntersect, isPointInConvexPolygon } from './interseccion.js';
 
 const EMA_ALPHA = 0.25;  // suavizado del punto de impacto en coords normalizadas
 
+// Frames consecutivos que la región candidata debe mantener antes de confirmar
+// el cambio. Evita parpadeo de etiqueta cuando el impacto roza el borde de la rejilla.
+const REGION_CHANGE_FRAMES = 5;
+
 /**
  * BoardGrounding — Proyecta el rayo de pointing sobre la superficie calibrada
  * de la pizarra y obtiene coordenadas espaciales normalizadas.
@@ -21,7 +25,10 @@ export class BoardGrounding {
   constructor(homography, coordSystem) {
     this.homography  = homography;
     this.coordSystem = coordSystem;
-    this._smoothed   = null;   // { x, y } en coords normalizadas [0,1]
+    this._smoothed          = null;   // { x, y } en coords normalizadas [0,1]
+    this._lastRegion        = null;   // región confirmada { col, row, colLabel, rowLabel, label }
+    this._pendingRegion     = null;   // candidato en espera de confirmación
+    this._pendingRegionCount = 0;
   }
 
   /**
@@ -79,43 +86,77 @@ export class BoardGrounding {
     // ── 3. Homografía: píxeles de cámara → plano rectificado ─────────────────
     const rectPt = this.homography.transformPoint(hitPx.x, hitPx.y);
 
-    // ── 4. Normalización y clasificación de región ────────────────────────────
-    const ref = this.coordSystem.toSpatialReference(
+    // ── 4. Normalización de las coordenadas brutas ────────────────────────────
+    const { xn, yn } = this.coordSystem.normalize(
       rectPt.x, rectPt.y,
       this.homography.rectWidth,
       this.homography.rectHeight,
     );
 
-    // ── 5. EMA sobre la posición normalizada del impacto ──────────────────────
+    // ── 5. EMA sobre la posición normalizada ──────────────────────────────────
     if (this._smoothed) {
       this._smoothed = {
-        x: EMA_ALPHA * ref.xn + (1 - EMA_ALPHA) * this._smoothed.x,
-        y: EMA_ALPHA * ref.yn + (1 - EMA_ALPHA) * this._smoothed.y,
+        x: EMA_ALPHA * xn + (1 - EMA_ALPHA) * this._smoothed.x,
+        y: EMA_ALPHA * yn + (1 - EMA_ALPHA) * this._smoothed.y,
       };
     } else {
-      this._smoothed = { x: ref.xn, y: ref.yn };
+      this._smoothed = { x: xn, y: yn };
+    }
+
+    // ── 6. Clasificación de región desde coords suavizadas + debounce ─────────
+    // Clasificar desde smoothed (no desde xn/yn brutas) para que la etiqueta
+    // semántica sea coherente con la posición visual del impacto.
+    // El debounce evita cambios de etiqueta cuando el impacto roza un borde.
+    const rawRegion = this.coordSystem.classifyRegion(this._smoothed.x, this._smoothed.y);
+
+    let stableRegion;
+    if (this._lastRegion === null) {
+      stableRegion             = rawRegion;
+      this._lastRegion         = rawRegion;
+      this._pendingRegion      = null;
+      this._pendingRegionCount = 0;
+    } else if (rawRegion.col === this._lastRegion.col && rawRegion.row === this._lastRegion.row) {
+      stableRegion             = rawRegion;
+      this._pendingRegion      = null;
+      this._pendingRegionCount = 0;
+    } else {
+      // Candidato nuevo — acumular frames consecutivos antes de confirmar
+      if (this._pendingRegion &&
+          rawRegion.col === this._pendingRegion.col &&
+          rawRegion.row === this._pendingRegion.row) {
+        this._pendingRegionCount++;
+      } else {
+        this._pendingRegion      = rawRegion;
+        this._pendingRegionCount = 1;
+      }
+
+      if (this._pendingRegionCount >= REGION_CHANGE_FRAMES) {
+        stableRegion             = rawRegion;
+        this._lastRegion         = rawRegion;
+        this._pendingRegion      = null;
+        this._pendingRegionCount = 0;
+      } else {
+        stableRegion = this._lastRegion;
+      }
     }
 
     return {
       hitPx:   { x: hitPx.x,  y: hitPx.y  },   // impacto en píxeles de cámara
       rectPx:  { x: rectPt.x, y: rectPt.y },   // impacto en plano rectificado (px)
-      xn:      ref.xn,                           // coords normalizadas [0,1]
-      yn:      ref.yn,
+      xn,                                        // coords normalizadas brutas [0,1]
+      yn,
       smoothed: { ...this._smoothed },            // posición EMA
-      region: {
-        col:      ref.col,
-        row:      ref.row,
-        colLabel: ref.colLabel,
-        rowLabel: ref.rowLabel,
-        label:    ref.label,
-      },
+      region:  stableRegion,                      // región estabilizada temporalmente
       fingertipDirect: fingertipInside,
       t: hitT,   // distancia rayo → impacto (null si hit directo por fingertip)
     };
   }
 
   reset() {
-    this._smoothed = null;
+    this._smoothed          = null;
+    this._lastRegion        = null;
+    this._pendingRegion     = null;
+    this._pendingRegionCount = 0;
   }
 }
 
