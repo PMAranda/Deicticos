@@ -19,6 +19,12 @@ const HOLD_THRESHOLD       = 0.20;
 const HANDS_WINDOW     = 10;  // ventana de frames para evaluar estabilidad
 const HANDS_MIN_STABLE =  6;  // mínimo de frames válidos para activar Hands
 
+// ── Debounce de cambio de brazo ────────────────────────────────────────────
+// detectActiveSide evalúa frame a frame; si ambos brazos tienen puntuaciones
+// similares, un frame ruidoso puede provocar un switch momentáneo al otro brazo.
+// Se exige que el candidato gane N frames consecutivos antes de confirmar el cambio.
+const SIDE_CHANGE_FRAMES = 5;
+
 export class PointingEstimator {
   constructor() {
     this._smoothed      = null;
@@ -28,6 +34,9 @@ export class PointingEstimator {
     // Tracker de estabilidad de Hands
     this._handStableFrames = 0;
     this._lastSide         = null;
+    // Debounce de cambio de brazo
+    this._pendingSide      = null;
+    this._pendingSideCount = 0;
   }
 
   /**
@@ -45,15 +54,43 @@ export class PointingEstimator {
    * @returns {PointingResult}
    */
   estimate(poseLandmarks, hands, side = 'auto', singleFrame = false) {
-    // ── Fase 1: selección del brazo — solo Pose ───────────────────────────────
-    const activeSide = side === 'auto'
-      ? detectActiveSide(poseLandmarks)   // Hands no interviene aquí
+    // ── Fase 1: selección del brazo — solo Pose, con debounce ────────────────
+    const rawSide = side === 'auto'
+      ? detectActiveSide(poseLandmarks, this._lastSide)
       : side;
 
-    // Resetear estabilidad de Hands si cambia el brazo activo
-    if (activeSide !== this._lastSide) {
-      this._handStableFrames = 0;
-      this._lastSide         = activeSide;
+    // En modo manual el cambio es inmediato; en auto se requieren SIDE_CHANGE_FRAMES
+    // frames consecutivos con el mismo candidato para confirmar el switch.
+    let activeSide;
+    if (this._lastSide === null || side !== 'auto') {
+      activeSide             = rawSide;
+      this._lastSide         = rawSide;
+      this._pendingSide      = null;
+      this._pendingSideCount = 0;
+    } else if (rawSide === this._lastSide) {
+      activeSide             = rawSide;
+      this._pendingSide      = null;
+      this._pendingSideCount = 0;
+    } else {
+      // Candidato distinto al brazo activo — acumular frames consecutivos
+      if (rawSide !== this._pendingSide) {
+        this._pendingSide      = rawSide;
+        this._pendingSideCount = 1;
+      } else {
+        this._pendingSideCount++;
+      }
+
+      if (this._pendingSideCount >= SIDE_CHANGE_FRAMES) {
+        // Cambio confirmado
+        activeSide             = rawSide;
+        this._lastSide         = rawSide;
+        this._pendingSide      = null;
+        this._pendingSideCount = 0;
+        this._handStableFrames = 0;  // reset Hands al cambiar de brazo
+      } else {
+        // Todavía no confirmado — mantener el brazo activo anterior
+        activeSide = this._lastSide;
+      }
     }
 
     // ── Fase 2: evaluar estabilidad de Hands para el brazo activo ─────────────
@@ -171,6 +208,8 @@ export class PointingEstimator {
     this._lastReason       = 'lost';
     this._handStableFrames = 0;
     this._lastSide         = null;
+    this._pendingSide      = null;
+    this._pendingSideCount = 0;
   }
 }
 

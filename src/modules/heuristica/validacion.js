@@ -82,6 +82,10 @@ export function validateGesture(armData, extensionAngle) {
   return { isGesture: true, confidence, reason: 'ok' };
 }
 
+// Margen mínimo que el candidato debe superar al brazo activo para provocar un
+// cambio. Evita switches cuando ambos brazos pasan validación con scores similares.
+const SIDE_SWITCH_MARGIN = 0.25;
+
 /**
  * Detecta el brazo activo usando ÚNICAMENTE Pose como fuente de verdad semántica.
  * Hands no interviene en la selección — solo en el refinamiento direccional
@@ -91,11 +95,15 @@ export function validateGesture(armData, extensionAngle) {
  *   gesto validado por Pose → 1.0 + confidence
  *   sin gesto               → visBase × 0.3  (desempate por visibilidad básica)
  *
- * @param {Array|null} poseLandmarks
+ * Si se proporciona `currentSide`, se aplica histéresis: el brazo contrario debe
+ * superar al activo en al menos SIDE_SWITCH_MARGIN para provocar el cambio.
+ *
+ * @param {Array|null}          poseLandmarks
+ * @param {'Right'|'Left'|null} currentSide   - brazo actualmente seleccionado
  * @returns {'Right'|'Left'}
  */
-export function detectActiveSide(poseLandmarks) {
-  if (!poseLandmarks) return 'Right';
+export function detectActiveSide(poseLandmarks, currentSide = null) {
+  if (!poseLandmarks) return currentSide ?? 'Right';
 
   const scoreForSide = (side) => {
     const armData = extractArmVectors(poseLandmarks, null, side);
@@ -115,5 +123,17 @@ export function detectActiveSide(poseLandmarks) {
     return visBase * 0.3;
   };
 
-  return scoreForSide('Right') >= scoreForSide('Left') ? 'Right' : 'Left';
+  const scoreRight = scoreForSide('Right');
+  const scoreLeft  = scoreForSide('Left');
+
+  if (currentSide === null) {
+    return scoreRight >= scoreLeft ? 'Right' : 'Left';
+  }
+
+  // Histéresis: el otro brazo necesita superar al activo por SIDE_SWITCH_MARGIN
+  const scoreCurrent = currentSide === 'Right' ? scoreRight : scoreLeft;
+  const scoreOther   = currentSide === 'Right' ? scoreLeft  : scoreRight;
+  const other        = currentSide === 'Right' ? 'Left'     : 'Right';
+
+  return scoreOther >= scoreCurrent + SIDE_SWITCH_MARGIN ? other : currentSide;
 }
