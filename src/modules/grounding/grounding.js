@@ -1,4 +1,4 @@
-import { rayPolygonIntersect } from './interseccion.js';
+import { rayPolygonIntersect, isPointInConvexPolygon } from './interseccion.js';
 
 const EMA_ALPHA = 0.25;  // suavizado del punto de impacto en coords normalizadas
 
@@ -56,12 +56,28 @@ export class BoardGrounding {
     if (mag < 1e-9) return null;
     const dir = { x: rawDx / mag, y: rawDy / mag };
 
-    // ── 2. Intersección rayo → tablero ────────────────────────────────────────
-    const hit = rayPolygonIntersect(origin, dir, corners);
-    if (!hit) return null;
+    // ── 2. Hit point: fingertip directo o intersección del rayo ─────────────────
+    // Si Hands es fiable y el dedo índice está físicamente dentro del polígono
+    // del tablero, lo usamos directamente — evita que el rayo solo alcance bordes.
+    const indexH = result.handsReliable && result.armData?.points?.indexH;
+    const indexPx = indexH
+      ? { x: indexH.x * canvasWidth, y: indexH.y * canvasHeight }
+      : null;
+
+    const fingertipInside = indexPx ? isPointInConvexPolygon(indexPx, corners) : false;
+    let hitPx;
+    let hitT = null;
+    if (fingertipInside) {
+      hitPx = indexPx;
+    } else {
+      const rayHit = rayPolygonIntersect(origin, dir, corners);
+      if (!rayHit) return null;
+      hitPx = { x: rayHit.x, y: rayHit.y };
+      hitT  = rayHit.t;
+    }
 
     // ── 3. Homografía: píxeles de cámara → plano rectificado ─────────────────
-    const rectPt = this.homography.transformPoint(hit.x, hit.y);
+    const rectPt = this.homography.transformPoint(hitPx.x, hitPx.y);
 
     // ── 4. Normalización y clasificación de región ────────────────────────────
     const ref = this.coordSystem.toSpatialReference(
@@ -81,7 +97,7 @@ export class BoardGrounding {
     }
 
     return {
-      hitPx:   { x: hit.x,    y: hit.y    },   // impacto en píxeles de cámara
+      hitPx:   { x: hitPx.x,  y: hitPx.y  },   // impacto en píxeles de cámara
       rectPx:  { x: rectPt.x, y: rectPt.y },   // impacto en plano rectificado (px)
       xn:      ref.xn,                           // coords normalizadas [0,1]
       yn:      ref.yn,
@@ -93,7 +109,8 @@ export class BoardGrounding {
         rowLabel: ref.rowLabel,
         label:    ref.label,
       },
-      t: hit.t,   // distancia hombro → impacto en píxeles de cámara
+      fingertipDirect: fingertipInside,
+      t: hitT,   // distancia rayo → impacto (null si hit directo por fingertip)
     };
   }
 

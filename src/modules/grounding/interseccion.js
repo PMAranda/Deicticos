@@ -5,6 +5,30 @@
  */
 
 /**
+ * Comprueba si un punto está dentro de un polígono convexo.
+ * Usa el método del signo del producto vectorial por arista.
+ * Las esquinas deben estar en orden consistente (CW o CCW).
+ *
+ * @param {{x,y}}        pt      - Punto a comprobar
+ * @param {Array<{x,y}>} polygon - Vértices del polígono convexo en orden (↖↗↘↙)
+ * @returns {boolean}
+ */
+export function isPointInConvexPolygon(pt, polygon) {
+  const n = polygon.length;
+  let sign = 0;
+  for (let i = 0; i < n; i++) {
+    const a = polygon[i];
+    const b = polygon[(i + 1) % n];
+    const cross = (b.x - a.x) * (pt.y - a.y) - (b.y - a.y) * (pt.x - a.x);
+    if (Math.abs(cross) < 1e-9) continue;
+    const s = cross > 0 ? 1 : -1;
+    if (sign === 0) sign = s;
+    else if (s !== sign) return false;
+  }
+  return true;
+}
+
+/**
  * Intersección entre un rayo 2D y un segmento 2D.
  *
  * Rayo:     P(t) = O + t·D,  t ≥ 0

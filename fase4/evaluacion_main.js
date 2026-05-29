@@ -89,15 +89,19 @@ class Eval4App {
     this._currentGResult     = null;
     this._currentFileName    = '';
     this._pendingGtPointing  = null;
+    this._pendingGtAtBoard   = null;
 
     // ── DOM — anotación ───────────────────────────────────────────────────────
     this.gtPanel         = document.getElementById('gtPanel');
     this.gtSystemResult  = document.getElementById('gtSystemResult');
     this.gtPointingRow   = document.getElementById('gtPointingRow');
+    this.gtBoardRow      = document.getElementById('gtBoardRow');
     this.gtImpactRow     = document.getElementById('gtImpactRow');
     this.gtCoordsRow     = document.getElementById('gtCoordsRow');
     this.gtYesBtn        = document.getElementById('gtYesBtn');
     this.gtNoBtn         = document.getElementById('gtNoBtn');
+    this.gtBoardYesBtn   = document.getElementById('gtBoardYesBtn');
+    this.gtBoardNoBtn    = document.getElementById('gtBoardNoBtn');
     this.gtImpactYesBtn  = document.getElementById('gtImpactYesBtn');
     this.gtImpactNoBtn   = document.getElementById('gtImpactNoBtn');
     this.gtCoordsYesBtn  = document.getElementById('gtCoordsYesBtn');
@@ -381,10 +385,12 @@ class Eval4App {
   _bindAnnotationControls() {
     this.gtYesBtn?.addEventListener('click',       () => this._onGtPointing(true));
     this.gtNoBtn?.addEventListener('click',        () => this._onGtPointing(false));
+    this.gtBoardYesBtn?.addEventListener('click',  () => this._onGtBoard(true));
+    this.gtBoardNoBtn?.addEventListener('click',   () => this._onGtBoard(false));
     this.gtImpactYesBtn?.addEventListener('click', () => this._onGtRegion(true));
     this.gtImpactNoBtn?.addEventListener('click',  () => this._onGtRegion(false));
-    this.gtCoordsYesBtn?.addEventListener('click', () => this._annotate(this._pendingGtPointing, true,  true));
-    this.gtCoordsNoBtn?.addEventListener('click',  () => this._annotate(this._pendingGtPointing, true,  false));
+    this.gtCoordsYesBtn?.addEventListener('click', () => this._annotate(this._pendingGtPointing, this._pendingGtAtBoard, true,  true));
+    this.gtCoordsNoBtn?.addEventListener('click',  () => this._annotate(this._pendingGtPointing, this._pendingGtAtBoard, true,  false));
 
     this.nextImageBtn?.addEventListener('click', () => {
       this.nextImageBtn.style.display  = 'none';
@@ -420,46 +426,59 @@ class Eval4App {
     this.gtSystemResult.style.color = detected ? '#4DFF88' : '#FF8C4D';
 
     this.gtPointingRow.style.display = 'flex';
+    this.gtBoardRow.style.display    = 'none';
     this.gtImpactRow.style.display   = 'none';
     this.gtCoordsRow.style.display   = 'none';
     this.gtFeedback.style.display    = 'none';
     this.nextImageBtn.style.display  = 'none';
     this._pendingGtPointing          = null;
+    this._pendingGtAtBoard           = null;
     this.gtPanel.style.display       = 'flex';
     this._setStatus('Imagen analizada — etiqueta si la persona está apuntando.');
   }
 
   _onGtPointing(isPointing) {
     this._pendingGtPointing = isPointing;
+    if (isPointing) {
+      // Paso 2: preguntar si apunta a la pizarra
+      this.gtPointingRow.style.display = 'none';
+      this.gtBoardRow.style.display    = 'flex';
+    } else {
+      // No apunta → sin preguntas de grounding
+      this._annotate(false, null, null, null);
+    }
+  }
+
+  _onGtBoard(atBoard) {
+    this._pendingGtAtBoard = atBoard;
     const detected  = this._currentImageResult?.isGesture ?? false;
     const hasImpact = !!this._currentGResult;
 
-    if (isPointing && detected && hasImpact) {
-      // Paso 2: preguntar si la región es correcta
-      this.gtPointingRow.style.display = 'none';
-      this.gtImpactRow.style.display   = 'flex';
+    if (atBoard && detected && hasImpact) {
+      // Paso 3: preguntar si la región es correcta
+      this.gtBoardRow.style.display  = 'none';
+      this.gtImpactRow.style.display = 'flex';
     } else {
-      // TP sin impacto → grounding falla automáticamente; FP/FN/TN → no evalúa grounding
-      const regionAuto = (isPointing && detected && !hasImpact) ? false : null;
-      this._annotate(isPointing, regionAuto, null);
+      // No apunta a pizarra, o FN, o TP sin rayo → anotar directamente
+      const regionAuto = (atBoard && detected && !hasImpact) ? false : null;
+      this._annotate(this._pendingGtPointing, atBoard, regionAuto, null);
     }
   }
 
   _onGtRegion(regionCorrect) {
     if (regionCorrect) {
-      // Paso 3: preguntar si las coordenadas son precisas dentro de la región
+      // Paso 4: preguntar si las coordenadas son precisas
       this.gtImpactRow.style.display  = 'none';
       this.gtCoordsRow.style.display  = 'flex';
     } else {
-      // Región incorrecta → coordenadas también incorrectas por definición
-      this._annotate(this._pendingGtPointing, false, null);
+      this._annotate(this._pendingGtPointing, this._pendingGtAtBoard, false, null);
     }
   }
 
-  // gtRegionCorrect: true/false/null — null si no aplica (FP, FN, TN)
-  //                                    false automático si TP pero rayo no alcanzó tablero
-  // gtCoordsCorrect: true/false/null — solo se pregunta cuando gtRegionCorrect=true
-  _annotate(gtPointing, gtRegionCorrect, gtCoordsCorrect) {
+  // gtAtBoard:       true/false/null — null si no apunta
+  // gtRegionCorrect: true/false/null — null si no aplica o FN; false auto si TP sin rayo
+  // gtCoordsCorrect: true/false/null — solo cuando gtRegionCorrect=true
+  _annotate(gtPointing, gtAtBoard, gtRegionCorrect, gtCoordsCorrect) {
     if (!this._currentImageResult) return;
     const result   = this._currentImageResult;
     const gResult  = this._currentGResult;
@@ -469,6 +488,7 @@ class Eval4App {
     this._annotations.push({
       filename:        this._currentFileName,
       gtPointing,
+      gtAtBoard,
       detected,
       correct,
       hasImpact:       !!gResult,
@@ -522,17 +542,21 @@ class Eval4App {
     const f1  = (tp + fp) && (tp + fn) && tp
       ? (2 * tp / (2 * tp + fp + fn) * 100).toFixed(1) : '—';
 
-    // Grounding — solo sobre TPs
-    const tpList = A.filter(a => a.gtPointing && a.detected);
-    const gMiss  = tpList.filter(a => !a.hasImpact).length;
+    // Grounding — solo sobre TPs que apuntan a la pizarra
+    const tpList      = A.filter(a => a.gtPointing && a.detected);
+    const tpBoardList = tpList.filter(a => a.gtAtBoard === true);
+    const gMiss       = tpBoardList.filter(a => !a.hasImpact).length;
 
-    // Acc. región: TPs evaluados (gtRegionCorrect !== null)
-    const rEval    = tpList.filter(a => a.gtRegionCorrect !== null);
+    // Falso impacto: TP detectado con impacto pero la persona NO apuntaba a la pizarra
+    const falseImpact = tpList.filter(a => a.gtAtBoard === false && a.hasImpact).length;
+
+    // Acc. región: TPs que apuntan a pizarra y tienen impacto evaluado
+    const rEval    = tpBoardList.filter(a => a.gtRegionCorrect !== null);
     const rCorrect = rEval.filter(a => a.gtRegionCorrect === true).length;
     const rAcc     = rEval.length ? (rCorrect / rEval.length * 100).toFixed(1) : '—';
 
-    // Acc. coordenadas: TPs donde la región fue correcta y se evaluaron coords
-    const cEval    = tpList.filter(a => a.gtRegionCorrect === true && a.gtCoordsCorrect !== null);
+    // Acc. coordenadas: TPs con región correcta y coords evaluadas
+    const cEval    = tpBoardList.filter(a => a.gtRegionCorrect === true && a.gtCoordsCorrect !== null);
     const cCorrect = cEval.filter(a => a.gtCoordsCorrect === true).length;
     const cAcc     = cEval.length ? (cCorrect / cEval.length * 100).toFixed(1) : '—';
 
@@ -546,9 +570,10 @@ class Eval4App {
       <div class="stat-pill">TN <strong>${tn}</strong></div>
       <div class="stat-pill warn">FP <strong>${fp}</strong></div>
       <div class="stat-pill bad">FN <strong>${fn}</strong></div>
-      <div class="stat-pill good" title="Región correcta sobre TPs evaluados (${rEval.length}/${tpList.length})">Acc. región <strong>${rAcc}${rEval.length ? '%' : ''}</strong></div>
+      <div class="stat-pill good" title="Región correcta sobre TPs que apuntan a pizarra (${rEval.length}/${tpBoardList.length})">Acc. región <strong>${rAcc}${rEval.length ? '%' : ''}</strong></div>
       <div class="stat-pill good" title="Coords precisas sobre TPs con región correcta (${cEval.length}/${rCorrect})">Acc. coords <strong>${cAcc}${cEval.length ? '%' : ''}</strong></div>
-      ${gMiss ? `<div class="stat-pill warn" title="TPs donde el rayo no llegó a la pizarra">Rayo fuera <strong>${gMiss}</strong></div>` : ''}`;
+      ${gMiss ? `<div class="stat-pill warn" title="TPs apuntando a pizarra sin impacto detectado">Rayo fuera <strong>${gMiss}</strong></div>` : ''}
+      ${falseImpact ? `<div class="stat-pill bad" title="TPs donde el sistema generó impacto pero la persona no apuntaba a la pizarra">Falso impacto <strong>${falseImpact}</strong></div>` : ''}`;
   }
 
   _updateAnnotationTable() {
@@ -561,7 +586,9 @@ class Eval4App {
 
     this.annotationBodyEl.innerHTML = [...this._annotations].reverse().map((a, i) => {
       const idx    = this._annotations.length - i;
-      const gtIcon  = a.gtPointing ? '<span style="color:#4DFF88">Sí</span>' : '<span style="color:#888">No</span>';
+      const gtIcon  = a.gtPointing
+        ? `<span style="color:#4DFF88">Sí${a.gtAtBoard === true ? ' 🎯' : a.gtAtBoard === false ? ' (no pizarra)' : ''}</span>`
+        : '<span style="color:#888">No</span>';
       const detIcon = a.detected   ? '<span style="color:#4DFF88">Sí</span>' : '<span style="color:#888">No</span>';
       const okColor = a.correct ? '#4DFF88' : '#FF4D4D';
 
@@ -602,14 +629,15 @@ class Eval4App {
   _exportAnnotationsCSV() {
     if (!this._annotations.length) return;
     const header = [
-      'Imagen', 'Apuntando_GT', 'Detectado', 'Gesto_Correcto',
+      'Imagen', 'Apuntando_GT', 'Apunta_Pizarra', 'Detectado', 'Gesto_Correcto',
       'Tiene_Impacto', 'Región_Correcta', 'Coords_Precisas', 'Región',
       'X_norm', 'Y_norm', 'Modo', 'Confianza(%)', 'Razón', 'Brazo',
     ].join(',');
 
     const rows = [header, ...this._annotations.map(a => [
       `"${a.filename}"`,
-      a.gtPointing ? 1 : 0,
+      a.gtPointing  ? 1 : 0,
+      a.gtAtBoard  !== null ? (a.gtAtBoard  ? 1 : 0) : '',
       a.detected   ? 1 : 0,
       a.correct    ? 1 : 0,
       a.hasImpact  ? 1 : 0,
@@ -815,8 +843,10 @@ class Eval4App {
     this._currentImageResult = null;
     this._currentGResult     = null;
     this._pendingGtPointing  = null;
+    this._pendingGtAtBoard   = null;
     if (this.gtPanel)      this.gtPanel.style.display      = 'none';
     if (this.gtFeedback)   this.gtFeedback.style.display   = 'none';
+    if (this.gtBoardRow)   this.gtBoardRow.style.display   = 'none';
     if (this.gtCoordsRow)  this.gtCoordsRow.style.display  = 'none';
     if (this.nextImageBtn) this.nextImageBtn.style.display  = 'none';
   }
