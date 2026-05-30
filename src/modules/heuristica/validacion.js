@@ -58,13 +58,30 @@ export function validateGesture(armData, extensionAngle) {
 
   // ── 3. Alcance hombro-muñeca ──────────────────────────────────────────────
   // Solo se comprueba cuando la muñeca tiene visibilidad suficiente.
+  // Dos guardias contra falsos positivos por foreshortening (brazo extendido
+  // en profundidad hacia/desde la cámara → distancia 2D pequeña aunque el brazo
+  // esté realmente extendido):
+  //   - Guardia por codo: el codo ya está lejos del hombro en 2D → segmento
+  //     proximal visible y extendido (funciona cuando el brazo se extiende lateralmente).
+  //   - Guardia por extensión: el ángulo de extensión es pequeño → el brazo está
+  //     casi recto en 3D aunque proyecte colapsado (funciona cuando el brazo apunta
+  //     en profundidad; el ángulo entre vectores se conserva mejor que la distancia).
   if (points.shoulder && points.wrist && visibility.wrist >= MIN_WRIST_VIS) {
-    const dist = Math.hypot(
-      points.wrist.x - points.shoulder.x,
-      points.wrist.y - points.shoulder.y,
-    );
-    if (dist < MIN_WRIST_REACH) {
-      return { isGesture: false, confidence: 0.1, reason: 'muneca_muy_cerca' };
+    const elbowFar = points.elbow && Math.hypot(
+      points.elbow.x - points.shoulder.x,
+      points.elbow.y - points.shoulder.y,
+    ) > 0.10;
+
+    const armStraight = extensionAngle < 60;
+
+    if (!elbowFar && !armStraight) {
+      const dist = Math.hypot(
+        points.wrist.x - points.shoulder.x,
+        points.wrist.y - points.shoulder.y,
+      );
+      if (dist < MIN_WRIST_REACH) {
+        return { isGesture: false, confidence: 0.1, reason: 'muneca_muy_cerca' };
+      }
     }
   }
 
@@ -82,9 +99,14 @@ export function validateGesture(armData, extensionAngle) {
   return { isGesture: true, confidence, reason: 'ok' };
 }
 
-// Margen mínimo que el candidato debe superar al brazo activo para provocar un
-// cambio. Evita switches cuando ambos brazos pasan validación con scores similares.
-const SIDE_SWITCH_MARGIN = 0.25;
+// Margen cuando el brazo activo SIGUE gesticulando: muy alto para evitar switches
+// cuando ambos brazos pasan validateGesture con scores similares (ej. brazo activo
+// apunta a la pizarra mientras el otro se apoya en una silla).
+const SIDE_SWITCH_MARGIN_ACTIVE = 0.50;
+
+// Margen cuando el brazo activo HA PERDIDO el gesto: bajo para que el sistema
+// cambie ágilmente al brazo que sí está gesticulando.
+const SIDE_SWITCH_MARGIN_LOST = 0.10;
 
 /**
  * Detecta el brazo activo usando ÚNICAMENTE Pose como fuente de verdad semántica.
@@ -130,10 +152,16 @@ export function detectActiveSide(poseLandmarks, currentSide = null) {
     return scoreRight >= scoreLeft ? 'Right' : 'Left';
   }
 
-  // Histéresis: el otro brazo necesita superar al activo por SIDE_SWITCH_MARGIN
   const scoreCurrent = currentSide === 'Right' ? scoreRight : scoreLeft;
   const scoreOther   = currentSide === 'Right' ? scoreLeft  : scoreRight;
   const other        = currentSide === 'Right' ? 'Left'     : 'Right';
 
-  return scoreOther >= scoreCurrent + SIDE_SWITCH_MARGIN ? other : currentSide;
+  // Margen adaptativo: si el brazo activo sigue gesticulando (score > 1.0),
+  // se exige una ventaja grande para cambiar — evita switches cuando el brazo
+  // no activo también pasa validateGesture con confianza similar.
+  // Si el brazo activo ya no gesticula, el margen es pequeño para reaccionar rápido.
+  const currentGesturing = scoreCurrent > 1.0;
+  const margin = currentGesturing ? SIDE_SWITCH_MARGIN_ACTIVE : SIDE_SWITCH_MARGIN_LOST;
+
+  return scoreOther >= scoreCurrent + margin ? other : currentSide;
 }
