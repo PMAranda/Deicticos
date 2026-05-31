@@ -40,7 +40,7 @@ export class BoardGrounding {
    * @param {Array<{x,y}>}   corners       - 4 esquinas del tablero (↖↗↘↙, px cámara)
    * @returns {GroundingResult | null}
    */
-  project(result, canvasWidth, canvasHeight, corners) {
+  project(result, canvasWidth, canvasHeight, corners, forceRay = false) {
     if (!result.isGesture || !result.vector || !result.origin) {
       if (this._smoothed) {
         this._smoothed = { x: this._smoothed.x * 0.95, y: this._smoothed.y * 0.95 };
@@ -71,7 +71,7 @@ export class BoardGrounding {
       ? { x: indexH.x * canvasWidth, y: indexH.y * canvasHeight }
       : null;
 
-    const fingertipInside = indexPx ? isPointInConvexPolygon(indexPx, corners) : false;
+    const fingertipInside = !forceRay && indexPx ? isPointInConvexPolygon(indexPx, corners) : false;
     let hitPx;
     let hitT = null;
     if (fingertipInside) {

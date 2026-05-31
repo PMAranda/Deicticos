@@ -79,7 +79,8 @@ class Eval4App {
     this._isPlaying   = false;
     this._loopId      = null;
     this._loadedImg   = null;
-    this._side        = 'auto';
+    this._side           = 'auto';
+    this._groundingMethod = 'auto';  // 'auto' | 'ray'
     this._frameCount  = 0;
     this._impactCount = 0;
 
@@ -216,6 +217,14 @@ class Eval4App {
         this._side = btn.dataset.value;
         this.pointingEst.reset();
         document.querySelectorAll('.tag[data-group="side"]')
+          .forEach(b => b.classList.toggle('active', b === btn));
+      });
+    });
+
+    document.querySelectorAll('.tag[data-group="groundingMethod"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this._groundingMethod = btn.dataset.value;
+        document.querySelectorAll('.tag[data-group="groundingMethod"]')
           .forEach(b => b.classList.toggle('active', b === btn));
       });
     });
@@ -359,7 +368,7 @@ class Eval4App {
     const result    = { ...rawResult, isGesture: rawResult.rawIsGesture, confidence: rawResult.rawConfidence };
     this.angTracker.update(result);
 
-    const gResult = this.grounding.project(result, W, H, this._corners);
+    const gResult = this.grounding.project(result, W, H, this._corners, this._groundingMethod === 'ray');
     this.impactTrack.update(gResult);
 
     this.mainCtx.drawImage(img, 0, 0);
@@ -492,8 +501,10 @@ class Eval4App {
       detected,
       correct,
       hasImpact:       !!gResult,
+      fingertipDirect: gResult?.fingertipDirect ?? false,
       gtRegionCorrect,
       gtCoordsCorrect,
+      groundingMethod: this._groundingMethod,
       mode:            result.mode           ?? 'lost',
       confidence:      result.confidence     ?? 0,
       reason:          result.reason         ?? '—',
@@ -560,8 +571,15 @@ class Eval4App {
     const cCorrect = cEval.filter(a => a.gtCoordsCorrect === true).length;
     const cAcc     = cEval.length ? (cCorrect / cEval.length * 100).toFixed(1) : '—';
 
+    const nAuto = A.filter(a => a.groundingMethod === 'auto').length;
+    const nRay  = A.filter(a => a.groundingMethod === 'ray').length;
+    const nFT   = A.filter(a => a.fingertipDirect).length;
+
     this.annotationStatsEl.innerHTML = `
       <div class="stat-pill">Total <strong>${n}</strong></div>
+      ${nAuto ? `<div class="stat-pill">Auto <strong>${nAuto}</strong></div>` : ''}
+      ${nRay  ? `<div class="stat-pill">Solo rayo <strong>${nRay}</strong></div>` : ''}
+      ${nFT   ? `<div class="stat-pill good" title="Casos donde se usó fingertip directo">Fingertip <strong>${nFT}</strong></div>` : ''}
       <div class="stat-pill good">Acc. gesto <strong>${acc}%</strong></div>
       <div class="stat-pill good">Precisión <strong>${pre}%</strong></div>
       <div class="stat-pill good">Recall <strong>${rec}%</strong></div>
@@ -629,13 +647,16 @@ class Eval4App {
   _exportAnnotationsCSV() {
     if (!this._annotations.length) return;
     const header = [
-      'Imagen', 'Apuntando_GT', 'Apunta_Pizarra', 'Detectado', 'Gesto_Correcto',
+      'Imagen', 'Metodo_Grounding', 'Fingertip_Directo',
+      'Apuntando_GT', 'Apunta_Pizarra', 'Detectado', 'Gesto_Correcto',
       'Tiene_Impacto', 'Región_Correcta', 'Coords_Precisas', 'Región',
       'X_norm', 'Y_norm', 'Modo', 'Confianza(%)', 'Razón', 'Brazo',
     ].join(',');
 
     const rows = [header, ...this._annotations.map(a => [
       `"${a.filename}"`,
+      a.groundingMethod,
+      a.fingertipDirect ? 1 : 0,
       a.gtPointing  ? 1 : 0,
       a.gtAtBoard  !== null ? (a.gtAtBoard  ? 1 : 0) : '',
       a.detected   ? 1 : 0,
@@ -704,7 +725,7 @@ class Eval4App {
     const result   = this.pointingEst.estimate(pose, hands, this._side);
     this.angTracker.update(result);
 
-    const gResult  = this.grounding.project(result, W, H, this._corners);
+    const gResult  = this.grounding.project(result, W, H, this._corners, this._groundingMethod === 'ray');
     this.impactTrack.update(gResult);
 
     this._frameCount++;
