@@ -25,10 +25,16 @@ export class BoardGrounding {
   constructor(homography, coordSystem) {
     this.homography  = homography;
     this.coordSystem = coordSystem;
-    this._smoothed          = null;   // { x, y } en coords normalizadas [0,1]
-    this._lastRegion        = null;   // región confirmada { col, row, colLabel, rowLabel, label }
-    this._pendingRegion     = null;   // candidato en espera de confirmación
+    this._smoothed          = null;
+    this._lastRegion        = null;
+    this._pendingRegion     = null;
     this._pendingRegionCount = 0;
+    this._regionChangeFrames = REGION_CHANGE_FRAMES;
+  }
+
+  /** Actualiza el umbral de debounce de región en caliente. */
+  setRegionDebounce(n) {
+    this._regionChangeFrames = Math.max(1, Math.round(n));
   }
 
   /**
@@ -130,7 +136,7 @@ export class BoardGrounding {
         this._pendingRegionCount = 1;
       }
 
-      if (this._pendingRegionCount >= REGION_CHANGE_FRAMES) {
+      if (this._pendingRegionCount >= this._regionChangeFrames) {
         stableRegion             = rawRegion;
         this._lastRegion         = rawRegion;
         this._pendingRegion      = null;

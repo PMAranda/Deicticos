@@ -76,6 +76,10 @@ fase4/
   index.html            # Standalone fase 4 (requiere OpenCV para homografía)
   style.css
   main.js               # Combina fase 1 (calibración) + fase 3 (pointing) + fase 4 (grounding)
+fase5/
+  index.html            # Standalone fase 5 (requiere OpenCV)
+  style.css
+  main.js               # Combina fases 1-4 + DwellConfirmer; configuración de umbrales en UI
 ```
 
 **Módulos fase 4 — grounding espacial (`src/modules/grounding/`)**:
@@ -123,3 +127,7 @@ La confidencia incorpora un tercer factor (elevScore) que vale 0 cerca del umbra
 **Grounding espacial (fase 4):** `BoardGrounding.project(result, W, H, corners)` convierte el rayo de pointing en coordenadas normalizadas [0,1]² del tablero. Flujo: (1) escala origen y dirección de [0,1] a píxeles (corrigiendo aspecto de imagen), (2) `rayPolygonIntersect` con las 4 esquinas calibradas, (3) `homography.transformPoint` al plano rectificado, (4) normaliza y clasifica región con `CoordinateSystem`. El resultado incluye `hitPx` (píxeles cámara), `rectPx` (píxeles rectificados), `xn/yn` (normalized), `smoothed` (EMA α=0.25) y `region` (label de rejilla 3×3). Si el rayo no intersecta el tablero, devuelve `null`.
 
 **Condición experimental fase 3:** añade campo `heuristic` (nombre de la config, p.ej. `config_base`) a los metadatos de sesión. Permite comparar distintas configuraciones de pesos en el CSV exportado.
+
+**Dwell de gesto (fase 5):** `DwellConfirmer` (`src/modules/semantica/dwell.js`) requiere N frames consecutivos con `isGesture=true` antes de emitir `isConfirmed=true`. Si el gesto se interrumpe un solo frame, el contador se reinicia. Con `dwellFrames=0` la confirmación es inmediata. El umbral es configurable en caliente con `setDwellFrames(n)`. La barra de progreso de la UI rellena linealmente durante la espera y desaparece al confirmarse; el panel de región (prominente) solo se muestra cuando `isConfirmed=true`.
+
+**Debounce de región configurable:** `BoardGrounding.setRegionDebounce(n)` actualiza el número de frames consecutivos necesarios para confirmar un cambio de región. Por defecto 5 frames (`REGION_CHANGE_FRAMES`). La fase 5 expone este parámetro como slider en la UI para explorar el equilibrio robustez/latencia.
