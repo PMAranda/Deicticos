@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Evaluación Dwell — Fase 5</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="evaluacion.css" />
+  <script>
+    window.addEventListener('error', function(e) {
+      const el = document.getElementById('status');
+      if (el) { el.textContent = 'Error: ' + e.message; el.style.color = '#FF4D4D'; }
+    });
+  </script>
+</head>
+<body>
+
+  <header>
+    <h1>Evaluación de Persistencia Temporal</h1>
+    <p class="subtitle">Fase 5 — Análisis del impacto del dwell time sobre detección de gestos</p>
+    <nav class="eval-nav">
+      <a href="index.html" class="nav-link">← Modo cámara en vivo</a>
+    </nav>
+  </header>
+
+  <main>
+
+    <!-- Zona de subida (solo vídeo) -->
+    <section id="dropZone" class="drop-zone">
+      <div class="drop-icon">↑</div>
+      <p class="drop-label">Arrastra un vídeo aquí</p>
+      <p class="drop-hint">o haz clic · MP4, MOV, WebM…</p>
+      <input type="file" id="fileInput" accept="video/*" style="display:none" />
+    </section>
+
+    <!-- Barra de fuente -->
+    <div id="sourceBar" class="source-bar" style="display:none">
+      <span class="source-type-tag">VÍDEO</span>
+      <span id="fileName" class="source-name">—</span>
+      <span id="fileDuration" class="source-duration">—</span>
+      <span id="frameInfo" class="source-frame">—</span>
+      <button id="reloadBtn" class="reload-btn">✕ Cambiar vídeo</button>
+    </div>
+
+    <!-- Barra de estado -->
+    <div class="status-bar">
+      <p   id="status"        class="status">Cargando modelos y OpenCV…</p>
+      <div id="calibBadge"    class="badge badge-warn">Sin calibrar</div>
+      <div id="trackingBadge" class="badge badge-off">Sin detección</div>
+      <div id="fpsBadge"      class="badge">— FPS</div>
+    </div>
+
+    <!-- Panel de calibración -->
+    <div id="calibPanel" class="calib-panel" style="display:none">
+      <span class="calib-icon">◎</span>
+      <span id="calibInstructions">Haz clic en las 4 esquinas de la pizarra: ↖ ↗ ↘ ↙</span>
+      <button id="recalibBtn" class="btn btn-ghost" style="display:none">↺ Recalibrar</button>
+    </div>
+
+    <!-- Vistas: cámara + tablero -->
+    <div id="viewsRow" class="views-row" style="display:none">
+      <section class="view-panel main-panel">
+        <h2>Vista de cámara</h2>
+        <canvas id="mainCanvas"></canvas>
+      </section>
+      <section class="view-panel board-panel">
+        <h2>Vista tablero</h2>
+        <canvas id="boardCanvas"></canvas>
+      </section>
+    </div>
+
+    <!-- Panel de análisis (aparece tras calibración) -->
+    <div id="analysisPanel" class="analysis-panel" style="display:none">
+
+      <!-- Controles de análisis -->
+      <div class="analysis-controls">
+        <button id="analyzeBtn" class="btn btn-primary">▶ Analizar vídeo</button>
+        <label class="config-label" for="speedSelect">Velocidad</label>
+        <select id="speedSelect" class="speed-select">
+          <option value="0.5">×0.5</option>
+          <option value="1.0" selected>×1.0</option>
+          <option value="2.0">×2.0</option>
+          <option value="4.0">×4.0</option>
+        </select>
+      </div>
+
+      <!-- Barra de progreso del análisis -->
+      <div id="progressWrap" class="progress-wrap" style="display:none">
+        <div id="progressFill" class="progress-fill"></div>
+        <span id="progressLabel" class="progress-label">Analizando… 0%</span>
+      </div>
+
+      <!-- Controles de dwell (aparecen tras análisis) -->
+      <div id="dwellControls" class="dwell-controls" style="display:none">
+        <div class="config-group">
+          <label class="config-label">Dwell threshold</label>
+          <input type="range" id="dwellSlider" min="0" max="90" value="30" class="config-slider" />
+          <span id="dwellValue" class="config-value">30 f (~1,0 s)</span>
+        </div>
+        <button id="compareBtn" class="btn btn-ghost">↔ Comparar todos los umbrales</button>
+        <button id="exportBtn"  class="btn btn-export" disabled>↓ Exportar CSV</button>
+      </div>
+
+      <!-- Timeline -->
+      <div id="timelineSection" class="timeline-section" style="display:none">
+        <h3 class="section-title">Línea temporal <span id="timelineThresholdLabel" class="section-hint"></span></h3>
+        <div class="timeline-legend">
+          <span class="legend-item"><span class="legend-dot" style="background:#1a1a2a;border:1px solid #333"></span> Sin gesto</span>
+          <span class="legend-item"><span class="legend-dot" style="background:#7a5a00"></span> Dwell acumulando</span>
+          <span class="legend-item"><span class="legend-dot" style="background:#4DFF88"></span> Confirmado</span>
+        </div>
+        <canvas id="timelineCanvas" class="timeline-canvas"></canvas>
+        <div id="timelineInfo" class="timeline-info"></div>
+      </div>
+
+      <!-- Estadísticas del umbral actual -->
+      <div id="statsSection" class="stats-section" style="display:none">
+        <h3 class="section-title">Métricas del umbral seleccionado</h3>
+        <div id="statsPills" class="stats-pills"></div>
+      </div>
+
+      <!-- Tabla de comparación de umbrales -->
+      <div id="compareSection" class="compare-section" style="display:none">
+        <h3 class="section-title">Comparativa de umbrales de dwell</h3>
+        <table class="metrics-table compare-table">
+          <thead>
+            <tr>
+              <th>Dwell (f)</th>
+              <th>Dwell (s)</th>
+              <th>Confirmaciones</th>
+              <th>Interrupciones</th>
+              <th>Latencia media (f)</th>
+              <th>Latencia media (s)</th>
+              <th>% frames confirmados</th>
+              <th>% frames con gesto</th>
+            </tr>
+          </thead>
+          <tbody id="compareBody"></tbody>
+        </table>
+      </div>
+
+    </div>
+
+  </main>
+
+  <video id="video" playsinline muted style="display:none"></video>
+
+  <script>
+    var Module = {
+      onRuntimeInitialized: function () {
+        window.cvReady = true;
+        window.cv = cv;
+        window.Module = undefined;
+        delete window.Module;
+        window.dispatchEvent(new Event('opencv-ready'));
+      }
+    };
+  </script>
+  <script defer src="https://docs.opencv.org/4.8.0/opencv.js"
+          onerror="document.getElementById('status').textContent='Error: OpenCV no disponible.';document.getElementById('status').style.color='#FF4D4D';">
+  </script>
+  <script type="module" src="evaluacion_main.js"></script>
+
+</body>
+</html>

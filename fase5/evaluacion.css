@@ -1,0 +1,323 @@
+/* ── Drop zone ───────────────────────────────────────────────────────────── */
+.drop-zone {
+  border: 2px dashed #2a2a4e;
+  border-radius: 10px;
+  background: #0d0d1a;
+  padding: 2.5rem 1rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  margin-bottom: 0.75rem;
+}
+.drop-zone:hover, .drop-zone.dragover {
+  border-color: #5050a0;
+  background: #101020;
+}
+.drop-icon   { font-size: 2rem; color: #3a3a6a; margin-bottom: 0.4rem; }
+.drop-label  { font-size: 1rem; color: #8080c0; }
+.drop-hint   { font-size: 0.78rem; color: #3a3a5e; margin-top: 0.25rem; }
+
+/* ── Barra de fuente ─────────────────────────────────────────────────────── */
+.source-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  background: #13131f;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  padding: 0.5rem 0.9rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.8rem;
+}
+.source-type-tag {
+  background: #1a2e4a;
+  border: 1px solid #2a4a7a;
+  color: #9ab4f5;
+  border-radius: 4px;
+  padding: 0.12rem 0.45rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+.source-name     { color: #d0d0e0; flex: 1; min-width: 0; overflow: hidden;
+                   text-overflow: ellipsis; white-space: nowrap; }
+.source-duration { color: #5060a0; font-size: 0.75rem; }
+.source-frame    { color: #4a4a7a; font-size: 0.72rem; }
+.reload-btn {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid #333;
+  color: #555;
+  border-radius: 5px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.reload-btn:hover { border-color: #555; color: #888; }
+
+/* ── Panel de calibración ────────────────────────────────────────────────── */
+.calib-panel {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: #1a1400;
+  border: 1px solid #5a4500;
+  border-radius: 8px;
+  padding: 0.6rem 1rem;
+  margin-bottom: 0.6rem;
+  font-size: 0.82rem;
+  color: #FFD700;
+}
+.calib-icon { font-size: 1rem; opacity: 0.8; }
+
+/* ── Vistas ──────────────────────────────────────────────────────────────── */
+.eval-nav    { margin-top: 0.5rem; }
+.nav-link    { font-size: 0.8rem; color: #5050a0; text-decoration: none;
+               letter-spacing: 0.04em; transition: color 0.15s; }
+.nav-link:hover { color: #9ab4f5; }
+
+.views-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+@media (max-width: 900px) { .views-row { grid-template-columns: 1fr; } }
+
+.view-panel h2 {
+  font-size: 0.8rem;
+  color: #5050a0;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.4rem;
+}
+
+canvas {
+  display: block;
+  max-width: 100%;
+  border: 1px solid #2a2a3e;
+  border-radius: 6px;
+  background: #0d0d1a;
+}
+
+/* ── Panel de análisis ───────────────────────────────────────────────────── */
+.analysis-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.analysis-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  background: #13131f;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  padding: 0.6rem 1rem;
+}
+
+.speed-select {
+  background: #161625;
+  border: 1px solid #2a2a3e;
+  color: #9ab4f5;
+  border-radius: 5px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+/* ── Barra de progreso del análisis ─────────────────────────────────────── */
+.progress-wrap {
+  position: relative;
+  height: 32px;
+  background: #0d0d1a;
+  border: 1px solid #2a2a3e;
+  border-radius: 6px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+.progress-fill {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 0%;
+  background: linear-gradient(90deg, #1a3a5e, #9ab4f5);
+  transition: width 0.15s linear;
+}
+.progress-label {
+  position: relative;
+  z-index: 1;
+  padding: 0 0.75rem;
+  font-size: 0.78rem;
+  color: #d0d0e0;
+  letter-spacing: 0.03em;
+}
+
+/* ── Controles de dwell (post-análisis) ─────────────────────────────────── */
+.dwell-controls {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  background: #13131f;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  padding: 0.6rem 1rem;
+}
+
+.config-group {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.config-label {
+  font-size: 0.75rem;
+  color: #5060a0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+.config-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 150px;
+  height: 4px;
+  background: #2a2a3e;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+.config-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: #9ab4f5;
+  cursor: pointer;
+}
+.config-slider::-moz-range-thumb {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: #9ab4f5;
+  cursor: pointer;
+  border: none;
+}
+.config-value {
+  font-size: 0.75rem;
+  color: #9ab4f5;
+  font-variant-numeric: tabular-nums;
+  min-width: 90px;
+}
+
+/* ── Secciones post-análisis ─────────────────────────────────────────────── */
+.section-title {
+  font-size: 0.82rem;
+  color: #5050a0;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 0.6rem;
+}
+.section-hint { font-weight: 400; color: #3a3a5e; }
+
+/* ── Timeline ────────────────────────────────────────────────────────────── */
+.timeline-section {
+  background: #0d0d1a;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+}
+.timeline-legend {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  color: #6060a0;
+}
+.legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.timeline-canvas {
+  width: 100%;
+  height: 48px;
+  border-radius: 4px;
+  display: block;
+  cursor: crosshair;
+}
+.timeline-info {
+  margin-top: 0.4rem;
+  font-size: 0.72rem;
+  color: #5060a0;
+  min-height: 1em;
+}
+
+/* ── Pills de estadísticas ───────────────────────────────────────────────── */
+.stats-section {
+  background: #0d0d1a;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+}
+.stats-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.stat-pill {
+  background: #161625;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  padding: 0.35rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 90px;
+}
+.stat-pill-value { font-size: 1.1rem; font-weight: 700; color: #c0c0e0;
+                   font-variant-numeric: tabular-nums; }
+.stat-pill-label { font-size: 0.65rem; color: #4a4a7a; text-transform: uppercase;
+                   letter-spacing: 0.05em; margin-top: 0.1rem; }
+
+/* ── Tabla de comparación ────────────────────────────────────────────────── */
+.compare-section {
+  background: #0d0d1a;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  overflow-x: auto;
+}
+.compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.80rem;
+  min-width: 600px;
+}
+.compare-table th, .compare-table td {
+  padding: 0.3rem 0.6rem;
+  border-bottom: 1px solid #1a1a2e;
+  text-align: right;
+}
+.compare-table th:first-child, .compare-table td:first-child { text-align: left; }
+.compare-table th { color: #3a3a6a; font-size: 0.72rem; font-weight: 600;
+                    text-transform: uppercase; }
+.compare-table td { color: #c0c0d0; font-variant-numeric: tabular-nums; }
+.compare-table tr.active-row td { background: #0d1a0d; color: #4DFF88; }
+.compare-table tr:hover td { background: #13131f; }
+
+/* ── Botones de evaluación ───────────────────────────────────────────────── */
+.btn-export { background: #1e3a1e; border-color: #3a7a3a; color: #7eef7e; }
+.btn-export:hover:not(:disabled) { background: #264826; }
