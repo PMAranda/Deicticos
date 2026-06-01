@@ -1,0 +1,539 @@
+%----------
+%   IMPORTANTE
+%----------
+
+% Esta plantilla está basada en las recomendaciones de la guía "Trabajo fin de Máster: Escribir el TFM", que encontrarás en http://uc3m.libguides.com/TFM/escribir
+% contiene recomendaciones de la Biblioteca basadas principalmente en estilos APA e IEEE, pero debes seguir siempre las orientaciones de tu Tutor de TFM y la normativa de TFM para tu titulación.
+
+% ESTA PLANTILLA ESTÁ BASADA EN EL ESTILO APA
+
+%----------
+%	CONFIGURACIÓN DEL DOCUMENTO
+%----------
+
+\documentclass[12pt]{report} % fuente a 12pt
+
+% MÁRGENES: 2,5 cm sup. e inf.; 3 cm izdo. y dcho.
+\usepackage[
+a4paper,
+vmargin=2.5cm,
+hmargin=3cm
+]{geometry}
+
+% INTERLINEADO: Estrecho (6 ptos./interlineado 1,15) o Moderado (6 ptos./interlineado 1,5)
+\renewcommand{\baselinestretch}{1.15}
+\parskip=6pt
+
+% DEFINICIÓN DE COLORES para portada y listados de código
+\usepackage[table]{xcolor}
+\definecolor{azulUC3M}{RGB}{0,0,102}
+\definecolor{gray97}{gray}{.97}
+\definecolor{gray75}{gray}{.75}
+\definecolor{gray45}{gray}{.45}
+
+% Soporte para GENERAR PDF/A
+\usepackage[a-1b]{pdfx}
+
+% ENLACES
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,
+	linkcolor=black,
+	urlcolor=blue}
+
+% EXPRESIONES MATEMÁTICAS
+\usepackage{amsmath,amssymb,amsfonts,amsthm}
+
+% Codificación caracteres
+\usepackage{txfonts}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+
+% Definición idioma español
+\usepackage[spanish, es-tabla]{babel}
+\usepackage[babel, spanish=spanish]{csquotes}
+\AtBeginEnvironment{quote}{\small}
+
+% diseño de PIE DE PÁGINA
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\rfoot{\thepage}
+\fancypagestyle{plain}{\pagestyle{fancy}}
+
+% DISEÑO DE LOS TÍTULOS
+\usepackage{titlesec}
+\usepackage{titletoc}
+\titleformat{\chapter}[block]
+{\large\bfseries\filcenter}
+{\thechapter.}
+{5pt}
+{\MakeUppercase}
+{}
+\titlespacing{\chapter}{0pt}{0pt}{*3}
+\titlecontents{chapter}
+[0pt]
+{}
+{\contentsmargin{0pt}\thecontentslabel.\enspace\uppercase}
+{\contentsmargin{0pt}\uppercase}
+{\titlerule*[.7pc]{.}\contentspage}
+
+\titleformat{\section}
+{\bfseries}
+{\thesection.}
+{5pt}
+{}
+\titlecontents{section}
+[5pt]
+{}
+{\contentsmargin{0pt}\thecontentslabel.\enspace}
+{\contentsmargin{0pt}}
+{\titlerule*[.7pc]{.}\contentspage}
+
+\titleformat{\subsection}
+{\normalsize\bfseries}
+{\thesubsection.}
+{5pt}
+{}
+\titlecontents{subsection}
+[10pt]
+{}
+{\contentsmargin{0pt}
+	\thecontentslabel.\enspace}
+{\contentsmargin{0pt}}
+{\titlerule*[.7pc]{.}\contentspage}
+
+% DISEÑO DE TABLAS y FIGURAS
+\usepackage{multirow}
+\usepackage{caption}
+\usepackage{floatrow}
+\usepackage{array}
+\newcolumntype{P}[1]{>{\centering\arraybackslash}p{#1}}
+\DeclareCaptionFormat{upper}{#1#2\uppercase{#3}\par}
+\usepackage{graphicx}
+\graphicspath{{imagenes/}}
+
+% Diseño de tabla para ciencias sociales y humanidades
+\captionsetup*[table]{
+	justification=raggedright,
+	labelsep=newline,
+	labelfont=small,
+	singlelinecheck=false,
+	labelfont=bf,
+	font=small,
+	textfont=it
+}
+
+% Diseño de figuras
+\captionsetup[figure]{
+	name=Figura,
+	singlelinecheck=off,
+	labelsep=newline,
+	font=small,
+	labelfont=bf,
+	textfont=it
+}
+\floatsetup[figure]{
+    style=plaintop,
+    heightadjust=caption,
+    footposition=bottom,
+    font=small
+}
+
+\captionsetup*[floatfoot]{
+    footfont={small, up}
+}
+
+% NOTAS A PIE DE PÁGINA
+\usepackage{chngcntr}
+\counterwithout{footnote}{chapter}
+
+% LISTADOS DE CÓDIGO
+\usepackage{listings}
+
+\lstdefinestyle{estilo}{ frame=Ltb,
+	framerule=0pt,
+	aboveskip=0.5cm,
+	framextopmargin=3pt,
+	framexbottommargin=3pt,
+	framexleftmargin=0.4cm,
+	framesep=0pt,
+	rulesep=.4pt,
+	backgroundcolor=\color{gray97},
+	rulesepcolor=\color{black},
+	basicstyle=\ttfamily\footnotesize,
+	keywordstyle=\bfseries,
+	stringstyle=\ttfamily,
+	showstringspaces = false,
+	commentstyle=\color{gray45},
+	numbers=left,
+	numbersep=15pt,
+	numberstyle=\tiny,
+	numberfirstline = false,
+	breaklines=true,
+	xleftmargin=\parindent
+}
+
+\captionsetup*[lstlisting]{font=small, labelsep=period}
+\lstset{style=estilo}
+\renewcommand{\lstlistingname}{\uppercase{Código}}
+
+% BIBLIOGRAFÍA APA
+\usepackage[style=apa, backend=biber, natbib=true, hyperref=true, uniquelist=false, sortcites]{biblatex}
+\DeclareLanguageMapping{spanish}{spanish-apa}
+
+\makeatletter
+\DefineBibliographyExtras{spanish}{%
+  \setcounter{smartand}{1}%
+  \let\lbx@finalnamedelim=\lbx@es@smartand
+  \let\lbx@finallistdelim=\lbx@es@smartand
+}
+
+\renewbibmacro*{name:delim:apa:family-given}[1]{%
+  \ifnumgreater{\value{listcount}}{\value{liststart}}
+    {\ifboolexpr{
+       test {\ifnumless{\value{listcount}}{\value{liststop}}}
+       or
+       test \ifmorenames
+     }
+       {\printdelim{multinamedelim}}
+       {\lbx@finalnamedelim{#1}}}
+    {}}
+\makeatother
+
+\DefineBibliographyStrings{spanish}{%
+	andothers = {et\addabbrvspace al\adddot}
+}
+\DefineBibliographyStrings{spanish}{
+	url = {\adddot\space[En línea]\adddot\space Disponible en:}
+}
+\DefineBibliographyStrings{spanish}{
+	urlseen = {Acceso:}
+}
+\DefineBibliographyStrings{spanish}{
+	pages = {pp\adddot},
+	page = {p.\adddot}
+}
+
+\addbibresource{referencias.bib}
+
+
+%-------------
+%	DOCUMENTO
+%-------------
+
+\begin{document}
+\pagenumbering{roman}
+
+%----------
+%	PORTADA
+%----------
+\begin{titlepage}
+	\begin{sffamily}
+	\color{azulUC3M}
+	\begin{center}
+		\begin{figure}[H]
+			\makebox[\textwidth][c]{\includegraphics[width=10cm]{logo_UC3M.png}}
+		\end{figure}
+		\vspace{2.5cm}
+		\begin{Large}
+			Máster Universitario en Inteligencia Artificial Aplicada\\
+			2025-2026\\
+			\vspace{2cm}
+			\textsl{Trabajo Fin de Máster}
+			\bigskip
+		\end{Large}
+		{\Huge ``Reconocimiento de Gestos Deícticos y Referencias Espaciales en Tiempo Real''}\\
+		\vspace*{0.5cm}
+		\rule{10.5cm}{0.1mm}\\
+		\vspace*{0.9cm}
+		{\LARGE Pablo Moreno Aranda}\\
+		\vspace*{1cm}
+		\begin{Large}
+			Tutor\\
+			Andrea Bellucci\\
+			\vspace*{0.5cm}
+			% Lugar y fecha por determinar
+			\textit{[Lugar y fecha de presentación por determinar]}\\
+		\end{Large}
+	\end{center}
+	\vfill
+	\color{black}
+	\fbox{
+		\begin{minipage}{\linewidth}
+		\textbf{DETECCIÓN DEL PLAGIO}\\
+		\footnotesize{La Universidad utiliza el programa \textbf{Turnitin Feedback Studio} para comparar la originalidad del trabajo entregado por cada estudiante con millones de recursos electrónicos y detecta aquellas partes del texto copiadas y pegadas. Copiar o plagiar en un TFM es considerado una \textbf{\underline{Falta Grave}}, y puede conllevar la expulsión definitiva de la Universidad.}\end{minipage}}
+
+	\noindent\includegraphics[width=4.2cm]{creativecommons.png}\\
+	\footnotesize{Esta obra se encuentra sujeta a la licencia Creative Commons \textbf{Reconocimiento - No Comercial - Sin Obra Derivada}}
+
+	\end{sffamily}
+\end{titlepage}
+
+\newpage
+\thispagestyle{empty}
+\mbox{}
+
+%----------
+%	RESUMEN Y PALABRAS CLAVE
+%----------
+\renewcommand\abstractname{\large\bfseries\filcenter\uppercase{Resumen}}
+\begin{abstract}
+\thispagestyle{plain}
+\setcounter{page}{3}
+
+La comunicación humana está profundamente ligada al uso del gesto deíctico, es decir, el acto de señalar para referirse a objetos, localizaciones o regiones del espacio. En entornos educativos y profesionales, como aulas o salas de reuniones, los usuarios interactúan de forma continua con superficies físicas —pizarras, pantallas, mapas— mediante gestos de pointing. Sin embargo, los sistemas de interacción actuales requieren, en la mayoría de los casos, hardware especializado como guantes instrumentados, marcadores fiduciales o cámaras de profundidad, lo que limita su adopción en contextos cotidianos.
+
+Este trabajo presenta el diseño e implementación de un sistema de reconocimiento de gestos deícticos en tiempo real que opera íntegramente en el navegador web mediante una cámara RGB estándar, sin necesidad de hardware adicional. El sistema combina MediaPipe Tasks for Web para la estimación de pose corporal y la detección de manos, y OpenCV.js para la calibración geométrica y la transformación homográfica de la superficie de referencia. La detección del gesto de señalado se realiza mediante una heurística jerárquica que emplea MediaPipe Pose como núcleo semántico para determinar si existe intención de pointing y qué brazo realiza el gesto, y MediaPipe Hands para refinar la dirección de forma precisa cuando la estimación manual es estable. El rayo de pointing resultante se proyecta sobre la superficie calibrada mediante homografía, obteniendo coordenadas espaciales normalizadas y clasificando el impacto en regiones semánticas interpretables organizadas en una rejilla de tres por tres zonas. El sistema incorpora múltiples mecanismos de estabilización temporal —histéresis de confianza, suavizado mediante media móvil exponencial, debounce en la selección del brazo activo y estabilización de región— para garantizar una interacción robusta y continua. Finalmente, se presenta una metodología de evaluación experimental con anotación manual de imágenes y vídeos que permite cuantificar tanto la precisión en la detección del gesto como la coherencia del grounding espacial.
+
+\textbf{Palabras clave:} gestos deícticos, pointing, MediaPipe, homografía, estimación de pose corporal, interacción natural, grounding espacial, tiempo real, navegador web, OpenCV.js
+
+\vfill
+\end{abstract}
+\newpage
+\thispagestyle{empty}
+\mbox{}
+
+
+%----------
+%	DEDICATORIA
+%----------
+\chapter*{Dedicatoria}
+\setcounter{page}{5}
+
+% TODO: añadir dedicatoria cuando se decida el texto
+\textit{[Por determinar]}
+
+\vfill
+\newpage
+\thispagestyle{empty}
+\mbox{}
+
+
+%----------
+%	ÍNDICES
+%----------
+
+\tableofcontents
+\thispagestyle{fancy}
+\newpage
+\thispagestyle{empty}
+\mbox{}
+
+\listoffigures
+\thispagestyle{fancy}
+\newpage
+\thispagestyle{empty}
+\mbox{}
+
+\listoftables
+\thispagestyle{fancy}
+\newpage
+\thispagestyle{empty}
+\mbox{}
+
+
+%----------
+%	MEMORIA
+%----------
+\clearpage
+\pagenumbering{arabic}
+
+% ══════════════════════════════════════════════════════
+\chapter{Introducción}
+% ══════════════════════════════════════════════════════
+
+\section{Motivación}
+
+La comunicación humana es, por naturaleza, multimodal. Las personas no se expresan únicamente mediante el lenguaje verbal, sino que combinan palabras con gestos, miradas y posturas corporales que enriquecen y precisan el mensaje transmitido. Entre los gestos más universales y fundamentales se encuentran los gestos deícticos, aquellos mediante los cuales señalamos para indicar una entidad, localización o región del espacio \citep{mcneill1992}. Señalar una zona de la pizarra, indicar un punto en un mapa o referirse a un objeto del entorno son acciones cotidianas en entornos educativos, profesionales y colaborativos que los interlocutores humanos interpretan de forma natural e inmediata.
+
+Sin embargo, dotar a los sistemas informáticos de la capacidad de comprender este tipo de comunicación no verbal continúa siendo un problema abierto en el ámbito de la visión por computador y la interacción persona-ordenador. Los sistemas de interacción convencionales —ratones, pantallas táctiles, mandos de presentación— obligan al usuario a adaptar su comportamiento natural a las restricciones del dispositivo, en lugar de permitir que el sistema se adapte al comportamiento humano. Por otro lado, las soluciones basadas en reconocimiento de gestos que sí han alcanzado un nivel de madurez aceptable suelen depender de hardware especializado: guantes instrumentados, cámaras de profundidad, marcadores fiduciales o dispositivos de captura de movimiento \citep{suarez2012hand}. Esta dependencia limita notablemente su viabilidad en escenarios cotidianos como aulas, salas de reuniones o espacios domésticos.
+
+La consolidación de modelos de estimación de pose corporal y detección de manos capaces de ejecutarse en tiempo real sobre hardware convencional, como MediaPipe \citep{lugaresi2019mediapipe, bazarevsky2020blazepose, zhang2020mediapipe}, junto con la disponibilidad de bibliotecas de visión por computador en el navegador web como OpenCV.js \citep{bradski2000opencv}, abre la posibilidad de construir sistemas de reconocimiento de gestos deícticos accesibles, sin instalación, ejecutados íntegramente en el lado del cliente y compatibles con cualquier dispositivo dotado de cámara estándar.
+
+Este trabajo nace de la motivación de explorar hasta qué punto es posible reconocer de forma robusta el gesto de pointing —determinar si el usuario señala, con qué brazo y hacia dónde— y proyectar dicho gesto sobre una superficie física calibrada para obtener una referencia espacial interpretable, todo ello en tiempo real y sin necesidad de hardware adicional más allá de una webcam convencional.
+
+\section{Objetivos}
+
+El objetivo principal de este trabajo es el diseño e implementación de un sistema capaz de reconocer gestos deícticos de pointing en tiempo real a partir de vídeo de cámara RGB estándar, y de determinar la región espacial de una superficie física calibrada a la que el usuario está señalando, ejecutando todo el procesamiento íntegramente en el navegador web.
+
+Para alcanzar este objetivo principal se plantean los siguientes objetivos específicos:
+
+\begin{itemize}
+    \item \textbf{O1.} Implementar un módulo de calibración geométrica que permita seleccionar los cuatro vértices de una superficie física —tipicamente una pizarra— y calcular la transformación homográfica necesaria para rectificar su plano y establecer un sistema de coordenadas normalizadas sobre ella.
+
+    \item \textbf{O2.} Integrar en el navegador web la estimación de pose corporal (33 landmarks) y la detección de manos (21 landmarks por mano) mediante MediaPipe Tasks for Web, garantizando un procesamiento en tiempo real a una tasa de frames suficiente para la interacción natural.
+
+    \item \textbf{O3.} Diseñar e implementar una heurística de detección de pointing basada en la biomecánica del miembro superior que sea robusta frente a falsos positivos habituales —brazo en reposo, brazo doblado sobre el cuerpo— e incorpore mecanismos de estabilización temporal para evitar oscilaciones en la detección.
+
+    \item \textbf{O4.} Desarrollar un sistema de grounding espacial que proyecte el rayo de pointing sobre la superficie calibrada, empleando el fingertip como punto de impacto directo cuando sea posible, y la intersección geométrica rayo-polígono como alternativa, para obtener coordenadas normalizadas en el plano rectificado.
+
+    \item \textbf{O5.} Implementar la interpretación semántica de las referencias espaciales detectadas, clasificando el punto de impacto en regiones discretas con estabilización temporal, de forma que los cambios de región sean coherentes con la percepción humana y no se produzcan oscilaciones en los límites del grid.
+
+    \item \textbf{O6.} Diseñar e implementar una metodología de evaluación experimental que permita cuantificar, mediante anotación manual sobre imágenes y vídeos, tanto la precisión de la detección del gesto como la coherencia del grounding espacial, incluyendo métricas de precisión, recall, F1 y exactitud de región.
+\end{itemize}
+
+\section{Marco regulador}
+
+El desarrollo de este trabajo implica el procesamiento de imágenes de vídeo capturadas mediante la cámara del dispositivo del usuario, lo que requiere considerar el marco normativo aplicable tanto en materia de protección de datos como de uso de inteligencia artificial.
+
+\subsection{Protección de datos y privacidad}
+
+El sistema accede a la cámara del dispositivo mediante la API \texttt{getUserMedia} del navegador, que requiere el consentimiento explícito del usuario en cada sesión. El procesamiento del vídeo se realiza íntegramente en el lado del cliente, sin que las imágenes sean transmitidas a ningún servidor externo ni almacenadas de forma persistente. El sistema no retiene datos personales entre sesiones: únicamente se procesan métricas agregadas de movimiento —ángulos, vectores de dirección, coordenadas de landmarks— que no permiten la identificación de personas. En consecuencia, el sistema cumple con los principios de minimización de datos y privacidad por diseño establecidos en el Reglamento General de Protección de Datos \citep{rgpd2016}.
+
+\subsection{Reglamento de Inteligencia Artificial}
+
+El Reglamento (UE) 2024/1689 sobre Inteligencia Artificial \citep{aiact2024}, en vigor desde agosto de 2024, establece una clasificación de los sistemas de IA en función de su nivel de riesgo. El sistema desarrollado en este trabajo hace uso de modelos de estimación de pose corporal y detección de manos (MediaPipe) como componentes de percepción, pero no toma decisiones autónomas que afecten a derechos fundamentales de las personas ni opera en ninguno de los ámbitos de alto riesgo definidos por el reglamento. Su uso está restringido a contextos de investigación y experimentación controlada, por lo que se encuadra en la categoría de riesgo mínimo.
+
+\subsection{Licencias de software}
+
+Las bibliotecas utilizadas en el desarrollo del sistema se distribuyen bajo licencias de código abierto compatibles entre sí. MediaPipe Tasks for Web y OpenCV.js se publican bajo la licencia Apache 2.0 \citep{apache2}, que permite el uso, modificación y distribución tanto en proyectos de investigación como comerciales, con la única obligación de mantener el aviso de copyright original. La presente memoria se distribuye bajo la licencia Creative Commons Reconocimiento - No Comercial - Sin Obra Derivada, tal como indica la portada de este documento.
+
+\section{Estructura del documento}
+
+El presente documento se organiza en seis capítulos, cuyo contenido se describe a continuación.
+
+El \textbf{Capítulo 1} (este capítulo) introduce el trabajo, detalla la motivación que lo origina, los objetivos que persigue, el marco regulador aplicable y la organización del documento.
+
+El \textbf{Capítulo 2} presenta el estado del arte. Se expone el marco teórico necesario para contextualizar el trabajo —incluyendo los fundamentos de los gestos deícticos, la estimación de pose con redes neuronales y la geometría de la homografía— así como una revisión de los trabajos previos más relevantes en detección de gestos de pointing y sistemas de interacción basados en visión.
+
+El \textbf{Capítulo 3} describe el diseño y el desarrollo del sistema. Se detalla la arquitectura modular adoptada, las tecnologías empleadas y el proceso de construcción progresiva por fases: calibración geométrica, estimación corporal, heurística de pointing y grounding espacial semántico.
+
+El \textbf{Capítulo 4} presenta la experimentación y los resultados. Se describe la metodología de evaluación diseñada, las métricas empleadas y los resultados obtenidos, tanto para la detección del gesto como para la precisión del grounding espacial. Se recogen también los hallazgos adicionales derivados de la evaluación, incluyendo las limitaciones identificadas.
+
+El \textbf{Capítulo 5} analiza el entorno socioeconómico del proyecto, incluyendo el impacto potencial del sistema, la planificación temporal del desarrollo y el presupuesto estimado.
+
+El \textbf{Capítulo 6} recoge las conclusiones del trabajo y propone líneas de trabajo futuro que permitirían extender o mejorar el sistema desarrollado.
+
+Finalmente, se incluye la \textbf{Bibliografía} con todas las referencias citadas a lo largo del documento.
+
+
+% ══════════════════════════════════════════════════════
+\chapter{Estado del arte}
+% ══════════════════════════════════════════════════════
+
+\section{El gesto deíctico en la comunicación humana}
+
+La comunicación humana es, por naturaleza, multimodal. En prácticamente todos los intercambios cara a cara, el lenguaje verbal coexiste con una dimensión gestual que lo complementa, matiza y, en ocasiones, lo precede o sustituye. En el marco de la lingüística gestual, \citet{mcneill1992} propone una taxonomía seminal de los gestos humanos que distingue entre gestos icónicos —que reproducen visualmente la forma o el movimiento del referente—, metafóricos —que representan conceptos abstractos—, deícticos —que señalan hacia entidades o localizaciones— y rítmicos o \textit{beats} —que marcan la estructura prosódica del discurso—. Los gestos deícticos, denominados también gestos indiciales o de \textit{pointing}, constituyen la categoría más primitiva y universal: consisten en extender un dedo, la mano o el brazo para señalar hacia una entidad, localización o región del espacio con el propósito de dirigir la atención del interlocutor.
+
+\citet{kendon2004} amplía este marco subrayando que el gesto de \textit{pointing} no se limita al uso del dedo índice, sino que puede realizarse con la mano abierta, el mentón, la cabeza o incluso la mirada, en función de los convenios culturales del entorno social. Sin embargo, la forma más frecuente y reconocible en culturas occidentales es la extensión del brazo con el dedo índice extendido, orientado hacia el referente espacial. Ambos autores coinciden en que el gesto deíctico emerge antes que el lenguaje en el desarrollo ontogenético humano y constituye la base sobre la que se construye la capacidad de referencia compartida.
+
+\citet{clark1996} analiza el papel del \textit{pointing} en la teoría del acto comunicativo, argumentando que el gesto deíctico es uno de los mecanismos fundamentales que los interlocutores emplean para coordinar la atención conjunta sobre objetos del entorno —lo que denomina \textit{common ground}—. Esta capacidad de establecer referencias espaciales compartidas resulta especialmente relevante en entornos de enseñanza y trabajo colaborativo, donde múltiples participantes necesitan coordinar su atención sobre una superficie común, como una pizarra o una pantalla de proyección.
+
+Desde una perspectiva computacional, el trabajo pionero de \citet{bolt1980put} introdujo por primera vez el concepto de interfaz gestual multimodal: un sistema que combinaba comandos de voz con señalamientos del usuario para manipular objetos en una pantalla de gran tamaño. Este trabajo estableció los fundamentos de lo que hoy denominamos interfaces naturales de usuario (NUI) y anticipó el interés creciente por dotar a los sistemas informáticos de la capacidad de interpretar gestos de \textit{pointing}.
+
+Desde una perspectiva computacional, resulta relevante considerar también la estructura temporal interna del gesto. \citet{kendon2004} introduce el concepto de \textit{frase gestual} (\textit{gesture phrase}) para describir la unidad mínima del movimiento gestual, articulada en fases cinemáticas secuenciales: una \textit{preparación}, en la que el miembro se eleva desde la posición de reposo hacia el espacio operativo frontal; opcionalmente un \textit{pre-stroke hold}, en que el movimiento se detiene antes del pico cinético; el \textit{stroke} propiamente dicho —fase obligatoria que porta el peso semántico del gesto mediante el pico de velocidad del movimiento—; y finalmente la \textit{retracción} al reposo \citep{mcneill1992}. En la deixis, el stroke puede ser estático —el miembro apunta y permanece estacionario describiendo un vector fijo— o dinámico —el referente se designa mediante una trayectoria continua—. Para un sistema que procesa un flujo de vídeo en tiempo real, el reto consiste en identificar el stroke e ignorar las fases de preparación y retracción que lo flanquean, mientras se compensan la incertidumbre visual y la variabilidad anatómica entre usuarios.
+
+\section{Estimación de pose corporal y detección de manos}
+
+\subsection{Evolución de los métodos}
+
+La estimación de la pose corporal humana a partir de imágenes o vídeo —es decir, la determinación de la posición de los principales puntos articulares del cuerpo en coordenadas de imagen— ha sido un problema central en visión por computador durante las últimas tres décadas. Los enfoques clásicos, basados en modelos cinemáticos, descriptores de imagen artesanales y estimación probabilística mediante modelos de partes deformables, resultaban computacionalmente costosos y poco robustos ante variaciones de ropa, iluminación o fondo \citep{szeliski2022}.
+
+La irrupción del aprendizaje profundo transformó radicalmente el campo a partir de 2014. \citet{toshev2014deeppose} demostraron que una red neuronal convolucional podía estimar directamente las coordenadas de los \textit{landmarks} articulares en la imagen. Poco después, los enfoques basados en mapas de calor (\textit{heatmaps}) se convirtieron en el paradigma dominante: en lugar de predecir coordenadas directamente, la red produce una distribución de probabilidad sobre la posición de cada \textit{landmark}, lo que permite localizar los puntos con precisión subpíxel. \citet{cao2017realtime} presentaron OpenPose, el primer sistema capaz de estimar la pose de múltiples personas en tiempo real sin necesidad de conocer previamente el número de individuos en la escena, empleando \textit{Part Affinity Fields} para asociar los \textit{landmarks} detectados individualmente a cada persona.
+
+En paralelo, la detección de manos ha seguido una trayectoria similar. Los métodos basados en segmentación de color de piel o descriptores de forma resultan frágiles ante cambios de iluminación y fondo. Las redes neuronales convolucionales han permitido detectar y seguir la mano con alta precisión en condiciones no controladas, aunque el problema sigue siendo más difícil que la detección facial debido a la mayor variabilidad de orientaciones y oclusiones parciales. \citet{rautaray2015vision} revisan sistemáticamente los enfoques de reconocimiento de gestos de mano orientados a la interacción persona-ordenador, destacando las ventajas de los enfoques basados en visión frente a los dispositivos instrumentados, así como los retos abiertos en condiciones no controladas.
+
+\subsection{BlazePose y MediaPipe Hands: estimación en dispositivo}
+
+El proyecto MediaPipe, presentado por \citet{lugaresi2019mediapipe}, propone un marco de desarrollo de \textit{pipelines} de percepción basados en grafos de operaciones, orientado a la ejecución eficiente en dispositivos con recursos limitados —teléfonos móviles y dispositivos integrados— y, posteriormente, en el navegador web mediante compilación a WebAssembly (WASM).
+
+Dentro de este marco, \citet{bazarevsky2020blazepose} presentaron BlazePose, un modelo de estimación de pose corporal optimizado para la ejecución en tiempo real en dispositivos sin GPU dedicada. BlazePose introduce una arquitectura de dos etapas: un detector de persona ligero que localiza el cuerpo en la imagen, seguido de un estimador de \textit{landmarks} que predice la posición de 33 puntos articulares —incluyendo puntos de cara, torso, brazos y piernas—, junto con una estimación de visibilidad y presencia para cada uno. La integración temporal entre \textit{frames}, basada en la predicción de la región de interés a partir del \textit{frame} anterior, permite mantener el seguimiento a alta velocidad sin ejecutar el detector en cada \textit{frame}.
+
+Por su parte, \citet{zhang2020mediapipe} presentaron MediaPipe Hands, un sistema de seguimiento de manos en tiempo real que proporciona 21 \textit{landmarks} tridimensionales por mano —incluyendo coordenadas $(x, y)$ normalizadas en el plano imagen y una estimación de profundidad relativa $z$—. El sistema emplea una arquitectura análoga a BlazePose: un detector de palma ligero seguido de un estimador de \textit{landmarks} aplicado sobre la región de interés detectada. MediaPipe Hands introduce además la distinción automática entre mano izquierda y derecha, aunque esta clasificación se realiza en coordenadas de imagen espejo: la categoría \textit{Left} del modelo corresponde a la mano derecha real del usuario cuando la imagen está especularmente invertida, como ocurre en las capturas de webcam convencionales.
+
+Ambos modelos están disponibles como parte de MediaPipe Tasks for Web \citep{lugaresi2019mediapipe}, la API JavaScript que permite ejecutar los modelos directamente en el navegador mediante WebAssembly y WebGL, sin necesidad de servidor ni de instalación de software adicional.
+
+\section{Geometría proyectiva y homografía planar}
+
+La relación geométrica entre el plano de una superficie plana del mundo real y su proyección sobre el plano imagen de una cámara puede describirse, bajo el modelo de cámara estenopeica (\textit{pinhole}), mediante una transformación proyectiva plana denominada homografía \citep{hartley2003}. Formalmente, si $\mathbf{X} = (X, Y, 1)^\top$ es un punto en coordenadas homogéneas del plano de la superficie y $\mathbf{x} = (u, v, 1)^\top$ es su imagen en el plano sensor, entonces existe una matriz $\mathbf{H} \in \mathbb{R}^{3 \times 3}$ de rango 3, definida salvo un factor de escala, tal que:
+
+\begin{equation}
+  \lambda \, \mathbf{x} = \mathbf{H} \, \mathbf{X}
+  \label{eq:homography}
+\end{equation}
+
+donde $\lambda$ es el factor de escala proyectivo. La homografía captura simultáneamente la perspectiva de la cámara respecto al plano y las posibles deformaciones de escala, rotación y cizallamiento, lo que la convierte en la herramienta adecuada para rectificar la imagen de una pizarra fotografiada con perspectiva oblicua \citep{szeliski2022}.
+
+La estimación de $\mathbf{H}$ a partir de correspondencias de puntos se realiza mediante el algoritmo DLT (\textit{Direct Linear Transform}) \citep{hartley2003}, que requiere un mínimo de cuatro correspondencias no colineales. La solución numérica se obtiene por descomposición en valores singulares (SVD) de la matriz de restricciones lineales. Una vez estimada la homografía, la transformación inversa $\mathbf{H}^{-1}$ permite mapear cualquier punto del plano imagen al plano de la superficie, aplicando así la rectificación perspectiva. En el contexto de este trabajo, $\mathbf{H}$ se calcula a partir de los cuatro vértices del tablero seleccionados manualmente por el usuario y se emplea tanto para rectificar la vista del tablero como para transformar el punto de impacto del rayo de \textit{pointing} a coordenadas normalizadas del plano rectificado.
+
+\section{Sistemas de detección de gestos de pointing}
+
+\subsection{Enfoques basados en sensores especializados}
+
+Los primeros sistemas de reconocimiento computacional de gestos de \textit{pointing} emplearon sensores especializados para superar las limitaciones de la visión monocular. \citet{nickel2003pointing} presentaron un sistema que fusiona el seguimiento 3D de la cara, las manos y la orientación de la cabeza, obtenido mediante una cámara estéreo, para estimar la dirección de \textit{pointing} en el espacio tridimensional. La disponibilidad de la coordenada de profundidad permitía calcular el eje real del brazo y proyectar un rayo hacia la escena, obteniéndose resultados robustos en condiciones de laboratorio.
+
+Con la popularización de los sensores de profundidad RGB-D, como el Microsoft Kinect (2010), proliferaron los sistemas que aprovechaban la nube de puntos 3D para detectar la pose del esqueleto completo y estimar la dirección de \textit{pointing} con mayor precisión que los métodos monoculares. \citet{suarez2012hand} ofrecen una revisión extensa de los métodos de reconocimiento de gestos de mano basados en imágenes de profundidad, concluyendo que, si bien estos sistemas alcanzan alta precisión en entornos controlados, su dependencia de hardware especializado limita notablemente su despliegue en escenarios cotidianos como aulas, salas de reuniones o espacios domésticos.
+
+\subsection{Enfoques basados en cámara RGB monocular}
+
+La detección de gestos de \textit{pointing} a partir de una única cámara de color presenta el reto fundamental de que la dirección tridimensional del brazo está indeterminada: el rayo proyectivo de la cámara colapsa toda la información de profundidad en un punto 2D. Los enfoques en este dominio pueden clasificarse en dos generaciones.
+
+La primera generación empleaba técnicas de visión clásica: segmentación de la mano por color de piel, seguimiento del brazo mediante contornos o filtros de partículas, y estimación de la dirección de \textit{pointing} como el vector entre el hombro y el extremo distal del brazo. Estos métodos son frágiles ante condiciones de iluminación adversas y ante la presencia de ropa de manga larga o fondo complejo.
+
+La segunda generación, impulsada por la disponibilidad de modelos de estimación de pose de alta calidad como BlazePose \citep{bazarevsky2020blazepose} y OpenPose \citep{cao2017realtime}, permite obtener los \textit{landmarks} del miembro superior —hombro, codo, muñeca, yemas de los dedos— directamente sin segmentación manual. La dirección de \textit{pointing} puede entonces estimarse como una composición ponderada de los vectores articulares del brazo en el plano imagen. Este enfoque es el adoptado en el presente trabajo, donde se propone una heurística de fusión jerárquica de cuatro vectores del miembro superior, con ponderación adaptativa según la disponibilidad de cada \textit{landmark} y la fiabilidad de la estimación de Hands.
+
+La combinación de estimación de pose corporal (MediaPipe Pose) con estimación de manos (MediaPipe Hands) como fuentes complementarias —la primera para la semántica del gesto y la segunda para el refinamiento direccional— no ha sido ampliamente explorada en la literatura, que tiende a emplear una sola fuente de \textit{landmarks}. El presente trabajo explora este espacio de diseño, argumentando que la complementariedad de ambas fuentes produce resultados superiores a cualquiera de las dos por separado.
+
+Dos trabajos recientes ilustran el estado del arte en este segundo paradigma. \citet{bamani2025pointingnet} proponen PointingNet, un sistema que combina estimación de pose corporal con segmentación del brazo apuntador para reducir el error angular de la dirección estimada desde los 28° típicos de los modelos de pose generales hasta menos de 2°, alcanzando tasas de reconocimiento del 96\% con una sola webcam. \citet{nakamura2023deepoint} presentan DeePoint —presentado en ICCV 2023—, una arquitectura basada en Vision Transformers que estima simultáneamente la presencia del gesto y la dirección de pointing, aprovechando la coordinación espacio-temporal del tronco y las extremidades de forma global en lugar de centrarse únicamente en los landmarks proximales del brazo. Ambos sistemas confirman que los enfoques de fusión que combinan múltiples segmentos del miembro superior superan los métodos de vector único.
+
+\subsection{Modelos probabilísticos y topología de anclaje del rayo}
+
+El modelo determinista del \textit{ray casting} —un rayo desde la mano— contrasta con el modelo probabilístico del \textit{cono de saliencia} (\textit{saliency cone}), propuesto por \citet{kranstedt2005deixis}. En lugar de una línea, este enfoque proyecta un volumen cónico que se origina en la articulación de la mano o el hombro y se expande radialmente, asignando a cada punto del espacio una probabilidad de ser el referente mediante una función de decaimiento gaussiano desde el eje central del cono. El cono de saliencia es especialmente adecuado cuando el sistema debe identificar el referente más probable entre varios objetos de la escena, integrando de forma natural la imprecisión inherente al gesto humano. El ray casting determinista resulta, en cambio, más apropiado cuando la superficie señalada es única y conocida —como en el caso de una pizarra calibrada—, donde la intersección del rayo con el polígono del tablero determina directamente el punto de impacto.
+
+Una cuestión de diseño fundamental, común a ambos modelos, es la elección del punto de anclaje del rayo o cono. \citet{arslanoglu2025pointing3d} presentan el benchmark Pointing3D con una comparativa empírica de cuatro topologías de anclaje evaluadas sobre datos 3D capturados con diversidad de usuarios y orientaciones (Tabla~\ref{tab:ancla}).
+
+\begin{table}[htbp]
+\caption{\label{tab:ancla}Comparativa de topologías de anclaje del rayo de pointing. Datos extraídos de \citet{arslanoglu2025pointing3d}. Acc.: exactitud de identificación del objetivo; $AD_c$: error angular medio del cono (grados).}
+\begin{tabular}{lcc}
+\hline
+\textbf{Origen del vector} & \textbf{Acc. (\%)} & $\boldsymbol{AD_c}$ \textbf{(°)} \\
+\hline
+Deepoint (línea base) & 34,9 & 28,9 \\
+Codo $\rightarrow$ Mano & 53,2 & 22,3 \\
+Cabeza $\rightarrow$ Mano & 54,1 & 20,7 \\
+Hombro $\rightarrow$ Mano & \textbf{66,5} & \textbf{18,5} \\
+Pointing3D (fusión de anclas) & 72,2 & 17,4 \\
+\hline
+\end{tabular}
+\end{table}
+
+Los resultados confirman que el vector hombro$\rightarrow$mano es la topología de anclaje individual más precisa: alcanza una exactitud del 66,5\% y reduce el error angular a 18,5° frente a los 22,3° del codo. Esta superioridad está en consonancia con estudios en ciencias cognitivas que argumentan que el ser humano calcula biomecánicamente su espacio directivo desde la articulación del hombro, que actúa como pivote de máxima palanca del miembro superior. El presente trabajo incorpora este principio en la heurística de fusión jerárquica: el vector hombro$\rightarrow$codo recibe el mayor peso en la composición vectorial, y los vectores distales —codo$\rightarrow$muñeca y muñeca$\rightarrow$índice— complementan la estimación cuando están disponibles y son fiables. Esta arquitectura aproxima el comportamiento del modelo de fusión Pointing3D —que combina múltiples anclas— sin requerir datos 3D ni calibración estéreo.
+
+\section{Interfaces naturales de usuario basadas en visión en el navegador}
+
+El concepto de interfaz natural de usuario (NUI) designa aquellas interfaces en las que la interacción se produce mediante comportamientos humanos naturales —gestos, voz, mirada— en contraposición a los dispositivos convencionales como el teclado o el ratón \citep{dix2004hci}. Desde el trabajo fundacional de \citet{bolt1980put}, el objetivo de dotar a los sistemas informáticos de la capacidad de interpretar el gesto deíctico en tiempo real ha impulsado numerosas líneas de investigación en interfaces multimodales.
+
+La ejecución de sistemas de visión por computador directamente en el navegador web representa una tendencia emergente que democratiza el acceso a estas tecnologías. \citet{smilkov2019tensorflow} demostraron la viabilidad de ejecutar modelos de aprendizaje profundo en el navegador mediante WebGL con TensorFlow.js, habilitando aplicaciones de visión sin instalación de software y con acceso directo a la cámara del dispositivo. MediaPipe Tasks for Web sigue este mismo paradigma, compilando los modelos de percepción a WebAssembly para maximizar el rendimiento en todos los navegadores modernos \citep{lugaresi2019mediapipe}.
+
+La combinación de calibración geométrica de superficies físicas con reconocimiento de gestos ejecutada íntegramente en el navegador constituye un espacio de diseño escasamente explorado en la literatura. Los sistemas existentes de \textit{pointing} en espacios aumentados suelen requerir infraestructura fija —cámaras de profundidad, proyectores calibrados— o aplicaciones nativas de escritorio. El presente trabajo representa, en este sentido, una contribución tanto técnica —la integración de pose corporal, homografía y \textit{grounding} espacial en el navegador web— como metodológica —la propuesta de un protocolo de evaluación sistemática con anotación manual y exportación de métricas cuantificables—.
+
+\section{Discusión y posicionamiento del trabajo}
+
+La revisión anterior permite situar el presente trabajo en el espacio de diseño delimitado por tres ejes principales: el tipo de señal de entrada, el entorno de ejecución y el nivel de interpretación semántica del gesto.
+
+En cuanto a la \textbf{señal de entrada}, el sistema opera con una cámara RGB monocular estándar, sin hardware especializado. A diferencia de los trabajos basados en sensores de profundidad \citep{nickel2003pointing, suarez2012hand}, no requiere calibración de sensor ni hardware de coste elevado, a costa de la pérdida de información tridimensional explícita. Esta limitación se mitiga mediante la heurística de fusión jerárquica de vectores articulares y los mecanismos de estabilización temporal descritos en el capítulo siguiente.
+
+En cuanto al \textbf{entorno de ejecución}, el sistema se ejecuta íntegramente en el navegador web, lo que constituye una diferencia fundamental respecto a la mayor parte de los trabajos revisados, que asumen la disponibilidad de una plataforma de escritorio o de un servidor con GPU. La compilación WASM de los modelos MediaPipe y la disponibilidad de OpenCV.js permiten mantener la latencia dentro de los márgenes necesarios para la interacción en tiempo real.
+
+En cuanto al \textbf{nivel de interpretación semántica}, el sistema no se limita a detectar si existe un gesto de \textit{pointing}, sino que determina el brazo activo, estima la dirección del rayo en el plano imagen, lo proyecta sobre la superficie calibrada mediante homografía y clasifica el punto de impacto en regiones semánticas discretas de una rejilla $3 \times 3$. Este nivel de interpretación, combinado con los mecanismos de estabilización temporal, acerca el sistema a las necesidades reales de aplicaciones educativas y colaborativas, tal como se evalúa en el Capítulo~4.
+
+
+%----------
+%	BIBLIOGRAFÍA
+%----------
+
+\clearpage
+\addcontentsline{toc}{chapter}{Bibliografía}
+\setquotestyle[english]{british}
+\printbibliography
+
+
+%----------
+%	ANEXOS
+%----------
+
+% \chapter*{Anexo I}
+% \pagenumbering{gobble}
+
+\end{document}

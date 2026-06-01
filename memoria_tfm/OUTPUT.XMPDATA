@@ -1,0 +1,6 @@
+\Title{Reconocimiento de Gestos Deícticos y Referencias Espaciales en Tiempo Real}
+\Author{Pablo Moreno Aranda}
+\Subject{Sistema de reconocimiento de gestos deícticos en tiempo real mediante cámara RGB estándar y procesamiento en navegador web con MediaPipe y OpenCV.js}
+\Keywords{gestos deícticos\sep pointing\sep MediaPipe\sep homografía\sep estimación de pose\sep interacción natural\sep grounding espacial\sep tiempo real}
+\PublicationType{TFM}
+\Language{es}
