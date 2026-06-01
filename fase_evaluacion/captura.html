@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Captura de Datos — Evaluación Experimental</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="captura.css" />
+  <script>
+    window.addEventListener('error', function(e) {
+      const el = document.getElementById('status');
+      if (el) { el.textContent = 'Error: ' + e.message; el.style.color = '#FF4D4D'; }
+    });
+  </script>
+</head>
+<body>
+
+  <header>
+    <h1>Captura de Datos Brutos</h1>
+    <p class="subtitle">Analiza un vídeo y exporta los datos sin dwell para evaluación post-hoc</p>
+    <nav class="phase-nav">
+      <a href="index.html" class="nav-link">← Análisis GT</a>
+    </nav>
+  </header>
+
+  <main>
+
+    <section id="dropZone" class="drop-zone">
+      <div class="drop-icon">↑</div>
+      <p class="drop-label">Arrastra un vídeo aquí</p>
+      <p class="drop-hint">o haz clic · MP4, MOV, WebM…</p>
+      <input type="file" id="fileInput" accept="video/*" style="display:none" />
+    </section>
+
+    <div id="sourceBar" class="source-bar" style="display:none">
+      <span class="source-type-tag">VÍDEO</span>
+      <span id="fileName"   class="source-name">—</span>
+      <span id="fileDuration" class="source-meta">—</span>
+      <span id="frameInfo"  class="source-meta">—</span>
+      <button id="reloadBtn" class="reload-btn">✕ Cambiar</button>
+    </div>
+
+    <div class="status-bar">
+      <p   id="status"        class="status">Cargando modelos y OpenCV…</p>
+      <div id="calibBadge"    class="badge badge-warn">Sin calibrar</div>
+      <div id="trackingBadge" class="badge badge-off">Sin detección</div>
+      <div id="fpsBadge"      class="badge">— FPS</div>
+    </div>
+
+    <div id="calibPanel" class="calib-panel" style="display:none">
+      <span class="calib-icon">◎</span>
+      <span id="calibInstructions">Haz clic en las 4 esquinas de la pizarra: ↖ ↗ ↘ ↙</span>
+      <button id="recalibBtn" class="btn btn-ghost" style="display:none">↺ Recalibrar</button>
+    </div>
+
+    <div id="viewsRow" class="views-row" style="display:none">
+      <section class="view-panel">
+        <h2>Vista cámara</h2>
+        <canvas id="mainCanvas"></canvas>
+      </section>
+      <section class="view-panel">
+        <h2>Vista tablero</h2>
+        <canvas id="boardCanvas"></canvas>
+      </section>
+    </div>
+
+    <div id="analysisPanel" class="analysis-panel" style="display:none">
+
+      <div class="analysis-controls">
+        <button id="analyzeBtn" class="btn btn-primary" disabled>▶ Analizar vídeo</button>
+        <label class="config-label" for="speedSelect">Velocidad</label>
+        <select id="speedSelect" class="speed-select">
+          <option value="0.5">×0.5</option>
+          <option value="1.0" selected>×1.0</option>
+          <option value="2.0">×2.0</option>
+          <option value="4.0">×4.0</option>
+        </select>
+      </div>
+
+      <div id="progressWrap" class="progress-wrap" style="display:none">
+        <div id="progressFill"  class="progress-fill"></div>
+        <span id="progressLabel" class="progress-label">Analizando… 0%</span>
+      </div>
+
+      <div id="exportWrap" class="export-wrap" style="display:none">
+        <p class="export-info">
+          <span id="exportSummary">—</span>
+        </p>
+        <button id="exportBtn" class="btn btn-export" disabled>↓ Exportar CSV bruto</button>
+        <a href="index.html" class="btn btn-primary" id="goAnalysisBtn" style="display:none;text-decoration:none">
+          → Ir a análisis GT
+        </a>
+      </div>
+
+      <div id="timelineWrap" class="timeline-section" style="display:none">
+        <h3 class="section-title">Detección de gesto <span class="section-hint">— vista previa (sin dwell)</span></h3>
+        <div class="timeline-legend">
+          <span class="legend-item"><span class="legend-dot" style="background:#12121e;border:1px solid #333"></span>Sin gesto</span>
+          <span class="legend-item"><span class="legend-dot" style="background:#4DFF88"></span>Gesto detectado</span>
+          <span class="legend-item"><span class="legend-dot" style="background:#FFD700"></span>Con región</span>
+        </div>
+        <canvas id="timelineCanvas" class="timeline-canvas" height="36"></canvas>
+        <div id="timelineInfo" class="timeline-info"></div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <video id="video" playsinline muted style="display:none"></video>
+
+  <script>
+    var Module = {
+      onRuntimeInitialized: function () {
+        window.cvReady = true;
+        window.cv = cv;
+        window.Module = undefined;
+        delete window.Module;
+        window.dispatchEvent(new Event('opencv-ready'));
+      }
+    };
+  </script>
+  <script defer src="https://docs.opencv.org/4.8.0/opencv.js"
+          onerror="document.getElementById('status').textContent='Error: OpenCV no disponible.';document.getElementById('status').style.color='#FF4D4D';">
+  </script>
+  <script type="module" src="captura_main.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,86 @@
+/* ── Calib panel ─────────────────────────────────────────────────────────── */
+.calib-panel {
+  display: flex; align-items: center; gap: 0.75rem;
+  background: #1a1400; border: 1px solid #5a4500; border-radius: 8px;
+  padding: 0.6rem 1rem; margin-bottom: 0.6rem;
+  font-size: 0.82rem; color: #FFD700;
+}
+.calib-icon { font-size: 1rem; opacity: 0.8; }
+
+/* ── Views ───────────────────────────────────────────────────────────────── */
+.views-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 0.75rem;
+}
+@media (max-width: 900px) { .views-row { grid-template-columns: 1fr; } }
+.view-panel h2 {
+  font-size: 0.8rem; color: #5050a0; text-transform: uppercase;
+  letter-spacing: 0.06em; margin-bottom: 0.4rem;
+}
+canvas { display: block; max-width: 100%; border: 1px solid #2a2a3e;
+         border-radius: 6px; background: #0d0d1a; }
+
+/* ── Analysis panel ──────────────────────────────────────────────────────── */
+.analysis-panel { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.5rem; }
+
+.analysis-controls {
+  display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+  background: #13131f; border: 1px solid #2a2a3e; border-radius: 8px;
+  padding: 0.6rem 1rem;
+}
+.speed-select {
+  background: #161625; border: 1px solid #2a2a3e; color: #9ab4f5;
+  border-radius: 5px; padding: 0.25rem 0.5rem; font-size: 0.8rem; cursor: pointer;
+}
+.config-label {
+  font-size: 0.75rem; color: #5060a0; text-transform: uppercase; letter-spacing: 0.05em;
+}
+
+/* ── Progress ────────────────────────────────────────────────────────────── */
+.progress-wrap {
+  position: relative; height: 32px; background: #0d0d1a;
+  border: 1px solid #2a2a3e; border-radius: 6px; overflow: hidden;
+  display: flex; align-items: center;
+}
+.progress-fill {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 0%;
+  background: linear-gradient(90deg, #1a3a5e, #9ab4f5); transition: width 0.15s linear;
+}
+.progress-label {
+  position: relative; z-index: 1; padding: 0 0.75rem;
+  font-size: 0.78rem; color: #d0d0e0; letter-spacing: 0.03em;
+}
+
+/* ── Export wrap ─────────────────────────────────────────────────────────── */
+.export-wrap {
+  display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+  background: #0d1a10; border: 1px solid #2a4a2a; border-radius: 8px;
+  padding: 0.65rem 1rem;
+}
+.export-info { font-size: 0.8rem; color: #5a8a5a; flex: 1; }
+
+/* ── Timeline ────────────────────────────────────────────────────────────── */
+.timeline-section {
+  background: #0d0d1a; border: 1px solid #2a2a3e; border-radius: 8px;
+  padding: 0.75rem 1rem;
+}
+.timeline-legend {
+  display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.5rem;
+}
+.legend-item { display: flex; align-items: center; gap: 0.35rem;
+               font-size: 0.72rem; color: #6060a0; }
+.legend-dot  { width: 12px; height: 12px; border-radius: 3px; display: inline-block; flex-shrink: 0; }
+.timeline-canvas { width: 100%; border-radius: 4px; display: block; cursor: crosshair; }
+.timeline-info { margin-top: 0.4rem; font-size: 0.72rem; color: #5060a0; min-height: 1em; }
+
+/* ── Status bar ──────────────────────────────────────────────────────────── */
+.status-bar { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+              margin-bottom: 0.5rem; }
+.status { font-size: 0.82rem; color: #6060a0; flex: 1; min-width: 200px; }
+.status.error { color: #FF4D4D; }
+.badge { display: inline-flex; align-items: center; padding: 0.18rem 0.55rem;
+         border-radius: 10px; border: 1px solid #2a2a3e; background: #161625;
+         font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em; color: #555; }
+.badge-warn   { border-color: #5a4500; color: #FFD700; background: #1a1400; }
+.badge-ok     { border-color: #1e4a1e; color: #4DFF88; background: #0d1a0d; }
+.badge-off    { color: #444; }
+.badge-active { border-color: #1e3a5e; color: #9ab4f5; background: #0d1525; }

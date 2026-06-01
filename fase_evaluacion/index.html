@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Evaluación Experimental — Precisión de Región</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <header>
+    <h1>Evaluación Experimental Integral</h1>
+    <p class="subtitle">Análisis de precisión de región con protocolo GT predefinido</p>
+    <nav class="phase-nav">
+      <a href="protocolo.html" class="nav-link">← Protocolo guiado</a>
+      <a href="captura.html"  class="nav-link" style="margin-left:1rem">← Captura vídeo</a>
+    </nav>
+  </header>
+
+  <main>
+
+    <!-- Zona de subida del CSV -->
+    <section id="dropZone" class="drop-zone">
+      <div class="drop-icon">↑</div>
+      <p class="drop-label">Arrastra el CSV bruto exportado desde Captura de datos</p>
+      <p class="drop-hint">o haz clic para seleccionar</p>
+      <input type="file" id="fileInput" accept=".csv,text/csv" style="display:none" />
+    </section>
+
+    <!-- Barra de fuente -->
+    <div id="sourceBar" class="source-bar" style="display:none">
+      <span class="source-type-tag">CSV</span>
+      <span id="fileName" class="source-name">—</span>
+      <span id="frameCount" class="source-meta">—</span>
+      <span id="videoDuration" class="source-meta">—</span>
+      <button id="reloadBtn" class="reload-btn">✕ Cambiar</button>
+    </div>
+
+    <!-- Aviso CSV bruto detectado -->
+    <div id="rawNotice" class="raw-notice" style="display:none">
+      <span class="raw-icon">⚙</span>
+      CSV bruto detectado — el dwell se simulará aquí.
+      <div class="config-group" style="margin-left:auto">
+        <label class="config-label">Dwell threshold</label>
+        <input type="range" id="dwellSlider" min="0" max="90" value="30" class="config-slider" />
+        <span id="dwellValue" class="config-value">30 f (~1,0 s)</span>
+      </div>
+    </div>
+
+    <!-- Configuración del protocolo GT -->
+    <section id="configSection" class="config-section" style="display:none">
+      <h2 class="section-title">Protocolo GT <span class="section-hint">— define el orden y duración de las regiones durante la grabación</span></h2>
+
+      <div class="protocol-params">
+        <div class="param-group">
+          <label class="param-label">Inicio del protocolo (s)</label>
+          <input type="number" id="startTime" value="2" min="0" step="0.5" class="param-input" />
+          <span class="param-hint">segundos desde el inicio del vídeo</span>
+        </div>
+        <div class="param-group">
+          <label class="param-label">Duración por región (s)</label>
+          <input type="number" id="regionDuration" value="4" min="1" step="0.5" class="param-input" />
+        </div>
+        <div class="param-group">
+          <label class="param-label">Pausa entre regiones (s)</label>
+          <input type="number" id="regionGap" value="1" min="0" step="0.5" class="param-input" />
+          <span class="param-hint">tiempo de reposicionamiento</span>
+        </div>
+        <div class="param-group">
+          <label class="param-label">Modo de detección</label>
+          <select id="detectionMode" class="param-select">
+            <option value="confirmed">Confirmado (con dwell)</option>
+            <option value="raw">Bruto (sin dwell)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="order-section">
+        <h3 class="order-title">Orden de regiones <span class="order-hint">— arrastra para reordenar según tu protocolo</span></h3>
+        <div id="regionOrder" class="region-order"></div>
+      </div>
+
+      <div class="preview-section">
+        <h3 class="section-title">Vista previa del protocolo</h3>
+        <table class="preview-table">
+          <thead><tr><th>#</th><th>Región</th><th>Inicio</th><th>Fin</th></tr></thead>
+          <tbody id="protocolPreview"></tbody>
+        </table>
+      </div>
+
+      <div class="analyze-bar">
+        <button id="analyzeBtn" class="btn btn-primary">▶ Analizar</button>
+      </div>
+    </section>
+
+    <!-- Resultados -->
+    <section id="resultsSection" style="display:none">
+
+      <div class="results-header">
+        <h2 class="section-title">Resultados</h2>
+        <div class="results-actions">
+          <button id="exportCsvBtn" class="btn btn-export" disabled>↓ CSV</button>
+          <button id="exportMatrixBtn" class="btn btn-export" disabled>↓ Matriz (PNG)</button>
+        </div>
+      </div>
+
+      <!-- Pills de estadísticas globales -->
+      <div id="statsPills" class="stats-pills"></div>
+
+      <!-- Curva precisión vs dwell (solo para CSV bruto) -->
+      <div id="curveSection" class="curve-section" style="display:none">
+        <h3 class="section-title">Curva precisión / latencia vs. umbral dwell
+          <span class="section-hint">— barrido automático 0–90 frames</span>
+        </h3>
+        <canvas id="curveCanvas" class="curve-canvas"></canvas>
+        <p class="curve-hint">Verde = precisión · Naranja = latencia media (s) · Línea vertical = umbral seleccionado</p>
+      </div>
+
+      <!-- Timeline GT vs Detectado -->
+      <div class="timeline-section">
+        <h3 class="section-title">Línea temporal
+          <span class="section-hint" id="timelineLabel"></span>
+        </h3>
+        <div class="timeline-legend" id="timelineLegend"></div>
+        <div class="timeline-wrap">
+          <div class="timeline-row-label">GT</div>
+          <canvas id="timelineGT"  class="timeline-canvas" height="28"></canvas>
+        </div>
+        <div class="timeline-wrap">
+          <div class="timeline-row-label">DET</div>
+          <canvas id="timelineDet" class="timeline-canvas" height="28"></canvas>
+        </div>
+        <div id="timelineInfo" class="timeline-info"></div>
+      </div>
+
+      <!-- Matriz de confusión -->
+      <div class="matrix-section">
+        <h3 class="section-title">Matriz de confusión <span class="section-hint">— filas: GT · columnas: detectado</span></h3>
+        <canvas id="matrixCanvas" class="matrix-canvas"></canvas>
+      </div>
+
+      <!-- Tabla de métricas por región -->
+      <div class="metrics-section">
+        <h3 class="section-title">Métricas por región</h3>
+        <div class="table-wrap">
+          <table class="metrics-table">
+            <thead>
+              <tr>
+                <th>Región</th>
+                <th>TP</th><th>FP</th><th>FN</th>
+                <th>Precisión</th><th>Recall</th><th>F1</th>
+                <th>Latencia</th>
+              </tr>
+            </thead>
+            <tbody id="metricsBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <script src="main.js"></script>
+
+</body>
+</html>

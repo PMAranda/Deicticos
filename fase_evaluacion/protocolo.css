@@ -1,0 +1,125 @@
+/* ── Config bar ───────────────────────────────────────────────────────────── */
+.config-bar {
+  display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;
+  background: #13131f; border: 1px solid #2a2a3e; border-radius: 8px;
+  padding: 0.6rem 1rem; margin-bottom: 0.75rem;
+}
+.config-hint { font-size: 0.72rem; color: #3a3a5e; }
+
+/* ── Layout ───────────────────────────────────────────────────────────────── */
+.proto-layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+@media (max-width: 900px) { .proto-layout { grid-template-columns: 1fr; } }
+
+.canvas-col { display: flex; flex-direction: column; }
+.protocol-col { display: flex; flex-direction: column; }
+
+/* ── Proto cards (states) ─────────────────────────────────────────────────── */
+.proto-card {
+  border-radius: 10px; padding: 1.5rem 1rem;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 0.75rem; text-align: center; flex: 1;
+  min-height: 260px; justify-content: center;
+}
+
+/* Calibration card */
+.calib-card { background: #1a1400; border: 1px solid #5a4500; }
+.calib-icon { font-size: 2rem; color: #FFD700; opacity: 0.8; }
+.calib-text { font-size: 0.88rem; color: #FFD700; line-height: 1.5; }
+
+/* Ready card */
+.ready-card { background: #0d1a2e; border: 1px solid #1a3a5e; }
+.ready-icon { font-size: 2.5rem; color: #4D9FFF; }
+.ready-text { font-size: 1rem; color: #9ab4f5; font-weight: 600; }
+.ready-hint { font-size: 0.95rem; color: #d0d0e0; }
+.ready-sub  { font-size: 0.72rem; color: #3a3a6a; }
+
+/* Wait card */
+.wait-card  { background: #0d0d1a; border: 2px solid #2a2a4e; }
+.wait-name  { font-size: 1.4rem; font-weight: 700; color: #d0d0e0;
+              text-transform: uppercase; letter-spacing: 0.05em; }
+
+/* Record card */
+.record-card { background: #0d1a10; border: 2px solid #1e5a2e;
+               animation: record-pulse 2s ease-in-out infinite; }
+@keyframes record-pulse {
+  0%,100% { border-color: #1e5a2e; }
+  50%      { border-color: #4DFF88; }
+}
+.rec-indicator {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-size: 0.72rem; font-weight: 700; color: #4DFF88;
+  letter-spacing: 0.12em;
+}
+.rec-dot {
+  width: 10px; height: 10px; border-radius: 50%; background: #4DFF88;
+  animation: blink 0.8s ease-in-out infinite;
+}
+@keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0.2; } }
+.rec-name { font-size: 1.4rem; font-weight: 700; color: #4DFF88;
+            text-transform: uppercase; letter-spacing: 0.05em; }
+.rec-stats { display: flex; flex-direction: column; align-items: center; gap: 0.1rem; }
+.rec-stat-val { font-size: 2rem; font-weight: 700; color: #c0c0e0;
+                font-variant-numeric: tabular-nums; }
+.rec-stat-lbl { font-size: 0.7rem; color: #5a5a7a; text-transform: uppercase; }
+.confirmed-badge {
+  font-size: 0.82rem; color: #4DFF88; background: #0d2a12;
+  border: 1px solid #1e5a2e; border-radius: 6px; padding: 0.2rem 0.7rem;
+}
+
+/* Done card */
+.done-card  { background: #0d1a10; border: 2px solid #1e5a2e; }
+.done-icon  { font-size: 3rem; color: #4DFF88; }
+.done-title { font-size: 1.1rem; font-weight: 700; color: #4DFF88; }
+.done-summary { font-size: 0.82rem; color: #6a8a6a; line-height: 1.6; }
+.done-actions { display: flex; gap: 0.5rem; }
+
+/* ── Proto progress bar ───────────────────────────────────────────────────── */
+.proto-progress-bar {
+  width: 100%; height: 6px; background: #1a1a2e; border-radius: 3px; overflow: hidden;
+}
+.proto-progress-fill {
+  height: 100%; background: linear-gradient(90deg, #4D9FFF, #4DFF88);
+  border-radius: 3px; transition: width 0.3s ease;
+}
+.region-counter { font-size: 0.72rem; color: #3a3a6a; text-transform: uppercase;
+                  letter-spacing: 0.08em; }
+
+/* ── Region grid (mini 3×3) ──────────────────────────────────────────────── */
+.region-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 3px; width: 120px;
+}
+.grid-cell {
+  height: 28px; border-radius: 4px; background: #1a1a2e;
+  border: 1px solid #2a2a3e; transition: all 0.2s;
+}
+.grid-cell.active {
+  border-color: #9ab4f5; background: #1a2e4a;
+}
+.grid-cell.done {
+  background: #0d1a0d; border-color: #1e4a1e;
+}
+
+/* ── Keyboard hints ──────────────────────────────────────────────────────── */
+.key-hint { font-size: 0.72rem; color: #3a3a6a; }
+.key-sep  { margin: 0 0.4rem; }
+kbd {
+  background: #1a1a2e; border: 1px solid #3a3a5e; border-radius: 4px;
+  padding: 0.1rem 0.4rem; font-family: monospace; font-size: 0.7rem;
+  color: #9ab4f5; white-space: nowrap;
+}
+
+/* ── Dwell bar dentro del record card ───────────────────────────────────────*/
+.dwell-bar-wrap {
+  width: 100%; height: 8px; background: #1a1a2e; border-radius: 4px;
+  overflow: hidden; position: relative;
+}
+.dwell-fill {
+  height: 100%; width: 0%; background: linear-gradient(90deg, #1a4a2a, #4DFF88);
+  border-radius: 4px; transition: width 0.08s linear;
+}
