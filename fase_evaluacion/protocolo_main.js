@@ -290,11 +290,13 @@ class ProtocoloApp {
         gtRegion:  REGIONS[this._currentIdx],
         isGesture: pointing.isGesture,
         confidence: parseFloat((pointing.confidence * 100).toFixed(1)),
-        mode:      pointing.mode ?? 'lost',
-        confirmed: dwellRes.isConfirmed,
-        region:    gResult?.region?.label ?? '',
-        xn:        gResult != null ? parseFloat(gResult.xn.toFixed(4)) : '',
-        yn:        gResult != null ? parseFloat(gResult.yn.toFixed(4)) : '',
+        mode:           pointing.mode ?? 'lost',
+        confirmed:      dwellRes.isConfirmed,
+        region:         gResult?.region?.label ?? '',
+        xn:             gResult != null ? parseFloat(gResult.xn.toFixed(4)) : '',
+        yn:             gResult != null ? parseFloat(gResult.yn.toFixed(4)) : '',
+        modoGrounding:  gResult != null ? (gResult.fingertipDirect ? 'fingertip' : 'raycast') : '',
+        handsReliable:  pointing.handsReliable ? 'Sí' : 'No',
       });
       this._updateRecordUI(dwellRes);
     }
@@ -496,13 +498,14 @@ class ProtocoloApp {
   // ── Exportar CSV con GT embebido ──────────────────────────────────────────
 
   _exportCSV() {
-    const header = 'Frame,Tiempo(s),GT_Region,Gesto,Confianza(%),Modo,Confirmado,Region,X_norm,Y_norm';
+    const header = 'Frame,Tiempo(s),GT_Region,Gesto,Confianza(%),Modo,Confirmado,Region,X_norm,Y_norm,Modo_grounding,Hands_fiable';
     const rows   = this._allFrames.map(f =>
       [f.frame, f.ts, f.gtRegion,
        f.isGesture ? 'Sí' : 'No',
        f.confidence, f.mode,
        f.confirmed  ? 'Sí' : 'No',
-       f.region, f.xn, f.yn].join(',')
+       f.region, f.xn, f.yn,
+       f.modoGrounding, f.handsReliable].join(',')
     );
     const csv  = header + '\n' + rows.join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
