@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Comparación VLLM · Gestos Deícticos</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <h1>Comparación VLLM</h1>
+  <div class="subtitle">Modelos de visión-lenguaje vs sistema de pointing deíctico</div>
+  <nav class="phase-nav">
+    <a href="../index.html" class="nav-link">← Volver a evaluación</a>
+  </nav>
+</header>
+
+<!-- CONFIG BAR -->
+<div class="config-bar">
+  <div class="cfg-group">
+    <label>Backend</label>
+    <select id="sel-backend">
+      <option value="ollama">Ollama (local)</option>
+      <option value="openai">OpenAI API</option>
+      <option value="manual">Manual</option>
+    </select>
+  </div>
+  <div class="cfg-group" id="cfg-ollama">
+    <label>Endpoint</label>
+    <input type="text" id="inp-endpoint" value="http://localhost:11434">
+    <button class="btn-sm" id="btn-refresh-models" title="Actualizar lista de modelos">↺</button>
+    <label>Modelo</label>
+    <select id="sel-model"><option value="">— sin modelos —</option></select>
+  </div>
+  <div class="cfg-group" id="cfg-openai" style="display:none">
+    <label>API Key</label>
+    <input type="password" id="inp-apikey" placeholder="sk-…" style="width:180px">
+    <label>Modelo</label>
+    <input type="text" id="inp-oai-model" value="gpt-4o" style="width:90px">
+  </div>
+  <div class="cfg-group" id="cfg-manual" style="display:none">
+    <label>Etiqueta</label>
+    <input type="text" id="inp-label" placeholder="ej. claude-3.5" style="width:120px">
+  </div>
+  <div class="cfg-group">
+    <button class="btn-sm" id="btn-init-sys">▶ Inicializar sistema</button>
+    <span id="sys-status" class="vllm-status">Sin inicializar</span>
+  </div>
+  <div class="cfg-group">
+    <label class="chk-label">
+      <input type="checkbox" id="chk-grid" checked> Cuadrícula
+    </label>
+    <button class="btn-sm" id="btn-calibrate">Calibrar pizarra</button>
+    <button class="btn-sm" id="btn-load-csv">Cargar CSV sistema</button>
+  </div>
+</div>
+
+<!-- MAIN LAYOUT -->
+<div class="main-layout">
+
+  <!-- LEFT: imagen -->
+  <div class="image-panel">
+    <div class="drop-zone" id="drop-zone">
+      <div class="drop-icon">🖼</div>
+      <div class="drop-label">Arrastra imágenes aquí</div>
+      <div class="drop-hint">o <label class="link-label">selecciona archivos<input type="file" id="inp-files" accept="image/*" multiple hidden></label></div>
+    </div>
+    <div id="viewer" style="display:none">
+      <div class="canvas-wrap">
+        <canvas id="canvas"></canvas>
+        <div class="calib-hint" id="calib-hint" style="display:none">Haz clic en las 4 esquinas de la pizarra (↖ ↗ ↘ ↙)</div>
+      </div>
+      <div class="img-nav">
+        <button id="btn-prev">◀</button>
+        <span id="img-counter">1 / 1</span>
+        <button id="btn-next">▶</button>
+        <span class="img-name" id="img-name"></span>
+        <label class="btn-sm btn-add" title="Añadir más imágenes">+ Añadir<input type="file" id="inp-add" accept="image/*" multiple hidden></label>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: controles -->
+  <div class="control-panel">
+
+    <section class="anno-section">
+      <h3>Anotación</h3>
+
+      <div class="field-row">
+        <label class="field-label">Ground Truth</label>
+        <div class="region-grid" id="grid-gt"></div>
+      </div>
+
+      <div class="field-row">
+        <label class="field-label">Sistema (CSV o manual)</label>
+        <div class="region-grid" id="grid-sys"></div>
+      </div>
+
+      <div class="field-row">
+        <label class="field-label">Respuesta VLLM</label>
+        <div class="vllm-row">
+          <button class="btn-primary" id="btn-query">▶ Consultar VLLM</button>
+          <span class="vllm-status" id="vllm-status"></span>
+        </div>
+        <div class="active-model-tag" id="lbl-active-model"></div>
+        <div class="raw-box" id="raw-box" style="display:none">
+          <textarea id="txt-raw" rows="3" placeholder="Respuesta bruta…"></textarea>
+          <button class="btn-sm" id="btn-parse">Interpretar →</button>
+        </div>
+        <div class="region-grid" id="grid-vllm"></div>
+      </div>
+
+      <div class="field-row">
+        <label class="field-label">Notas</label>
+        <textarea id="txt-notes" rows="2" placeholder="Observaciones opcionales…"></textarea>
+      </div>
+
+      <button class="btn-primary btn-full" id="btn-save">Guardar y siguiente →</button>
+    </section>
+
+    <section class="prompt-section">
+      <div class="prompt-header">
+        <h3>Prompt</h3>
+        <button class="btn-sm" id="btn-reset-prompt">Reset</button>
+      </div>
+      <textarea id="txt-prompt" rows="9"></textarea>
+    </section>
+
+  </div>
+</div>
+
+<!-- RESULTS -->
+<div class="results-wrap" id="results-wrap" style="display:none">
+  <div class="results-header">
+    <h3>Resultados <span id="res-count" class="badge">0</span></h3>
+    <button class="btn-primary" id="btn-export">Exportar CSV</button>
+  </div>
+  <div class="metrics-bar" id="metrics-bar"></div>
+  <div class="table-wrap">
+    <table id="res-table">
+      <thead>
+        <tr>
+          <th>#</th><th>Imagen</th><th>GT</th>
+          <th>Sistema</th><th>VLLM</th>
+          <th>Sys✓</th><th>VLLM✓</th><th>Acuerdo</th><th>Notas</th>
+        </tr>
+      </thead>
+      <tbody id="res-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<input type="file" id="inp-csv" accept=".csv" hidden>
+<script src="main.js" type="module"></script>
+</body>
+</html>
