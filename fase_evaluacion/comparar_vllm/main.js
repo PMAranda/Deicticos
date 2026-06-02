@@ -174,14 +174,25 @@ function getSelected(containerId) {
 }
 
 function parseRegion(raw) {
-  if (!raw) return null;
-  const lower = raw.toLowerCase().trim();
-  for (const r of REGIONS) if (lower.includes(r)) return r;
-  if (lower.includes(NO_POINTING) || lower.includes('no pointing') || lower.includes('not pointing')) return NO_POINTING;
-  if (lower.includes('fuera') || lower.includes('outside') || lower.includes('off board') ||
-      lower.includes('not at') || lower.includes('away from')) return FUERA_PIZARRA;
-  for (const [alias, canon] of Object.entries(REGION_ALIASES)) if (lower.includes(alias)) return canon;
-  return null;
+  if (!raw?.trim()) return null;
+  // Eliminar bloques de razonamiento y normalizar
+  const clean = raw
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/_/g, '-')
+    .trim();
+  const text  = (clean || raw).toLowerCase();
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const last  = lines[lines.length - 1] ?? '';
+
+  const find = t => {
+    for (const r of REGIONS) if (t.includes(r)) return r;
+    if (t.includes('no_pointing') || t.includes('no pointing') || t.includes('not pointing')) return NO_POINTING;
+    if (t.includes('fuera') || t.includes('outside') || t.includes('off board') ||
+        t.includes('not at') || t.includes('away from')) return FUERA_PIZARRA;
+    for (const [alias, canon] of Object.entries(REGION_ALIASES)) if (t.includes(alias)) return canon;
+    return null;
+  };
+  return find(last) ?? find(text);
 }
 
 // ── Resultado actual ──────────────────────────────────────────────────────────
@@ -388,9 +399,12 @@ async function queryVLLM() {
     setSelected('grid-vllm', region);
     rawBox.style.display = 'block';
     document.getElementById('txt-raw').value = raw;
+    const rawTrimmed = raw.trim();
     status.textContent = region
       ? `→ ${region}  (${latencyMs} ms)`
-      : `⚠ No reconocido  (${latencyMs} ms)`;
+      : rawTrimmed
+        ? `⚠ No reconocido  (${latencyMs} ms)`
+        : `⚠ Respuesta vacía — modelo en thinking sin output  (${latencyMs} ms)`;
     status.className = region ? 'vllm-status ok' : 'vllm-status error';
     renderResults();
   } catch (err) {
@@ -405,7 +419,7 @@ async function callOllama(base64, prompt) {
   const endpoint = document.getElementById('inp-endpoint').value.replace(/\/$/, '');
   const model    = document.getElementById('sel-model').value;
   const t0       = Date.now();
-  console.debug(`[VLLM] ${model} — enviando imagen…`);
+  console.log(`[VLLM] ${model} — enviando imagen…`);
 
   const res = await fetch(`${endpoint}/api/chat`, {
     method: 'POST',
@@ -416,8 +430,10 @@ async function callOllama(base64, prompt) {
 
   const reader  = res.body.getReader();
   const decoder = new TextDecoder();
-  let fullText  = '';
-  let tokens    = 0;
+  let content  = '';   // message.content
+  let thinking = '';   // message.thinking (campo separado en algunos modelos)
+  let logged   = 0;
+  let tokens   = 0;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -425,15 +441,29 @@ async function callOllama(base64, prompt) {
     for (const line of decoder.decode(value, { stream: true }).split('\n')) {
       if (!line.trim()) continue;
       try {
-        const token = JSON.parse(line).message?.content ?? '';
-        if (token) { fullText += token; tokens++; }
+        const obj = JSON.parse(line);
+        if (logged < 3) {
+          console.log(`[VLLM] chunk ${logged+1}:`, JSON.stringify(obj).slice(0, 250));
+          logged++;
+        }
+        const c = obj.message?.content  ?? '';
+        const t = obj.message?.thinking ?? '';
+        if (c) { content  += c; tokens++; }
+        if (t)   thinking += t;
       } catch { /* línea incompleta */ }
     }
-    if (tokens % 5 === 0 && tokens > 0)
-      console.debug(`[VLLM] ${model} — ${tokens} tokens… ${((Date.now()-t0)/1000).toFixed(1)}s  "${fullText}"`);
+    if (tokens > 0 && tokens % 5 === 0)
+      console.log(`[VLLM] ${model} — ${tokens} tokens… ${((Date.now()-t0)/1000).toFixed(1)}s`);
   }
 
-  console.debug(`[VLLM] ${model} — DONE ${((Date.now()-t0)/1000).toFixed(1)}s → "${fullText.trim()}"`);
+  // Prioridad: texto tras </think> → thinking separado → content completo
+  const afterThink = content.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+  const fullText   = afterThink || thinking.trim() || content.trim();
+
+  console.log(`[VLLM] ${model} — DONE ${((Date.now()-t0)/1000).toFixed(1)}s`);
+  console.log(`  content  (${content.length}c): "${content.trim().slice(0, 120)}"`);
+  console.log(`  thinking (${thinking.length}c): "${thinking.trim().slice(0, 120)}"`);
+  console.log(`  → usado: "${fullText.slice(0, 120)}"`);
   return fullText;
 }
 
