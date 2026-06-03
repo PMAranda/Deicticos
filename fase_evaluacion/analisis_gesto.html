@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Análisis por Contexto de Gesto</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .metric-cards {
+      display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem;
+    }
+    .metric-card {
+      flex: 1; min-width: 180px;
+      background: #0d0d1a; border: 1px solid #2a2a3e; border-radius: 8px;
+      padding: 0.9rem 1.1rem;
+    }
+    .metric-card.card-highlight { border-color: #4DFF88; }
+    .metric-card.card-warn      { border-color: #FF8833; }
+    .mc-label {
+      font-size: 0.7rem; color: #5060a0; text-transform: uppercase;
+      letter-spacing: 0.06em; margin-bottom: 0.35rem;
+    }
+    .mc-value {
+      font-size: 2rem; font-weight: 700; font-family: monospace;
+      font-variant-numeric: tabular-nums;
+    }
+    .mc-sub   { font-size: 0.7rem; color: #4a4a7a; margin-top: 0.2rem; }
+    .mc-note  { font-size: 0.68rem; color: #6a6a9e; margin-top: 0.5rem;
+                border-top: 1px solid #1a1a2e; padding-top: 0.4rem; }
+
+    .gap-box {
+      background: #1a120a; border: 1px solid #4a3010; border-radius: 8px;
+      padding: 0.6rem 1rem; margin-bottom: 0.75rem;
+      font-size: 0.78rem; color: #FFB060; display: none;
+    }
+    .gap-box strong { color: #FF8833; }
+
+    .notice-box {
+      background: #0d1a0d; border: 1px solid #1a4a1a; border-radius: 8px;
+      padding: 0.6rem 1rem; margin-bottom: 0.75rem;
+      font-size: 0.78rem; color: #6aaf6a;
+    }
+
+    /* Tabla ampliada */
+    .metrics-table th, .metrics-table td { padding: 0.3rem 0.5rem; }
+    .acc-col { font-weight: 700; }
+    .acc-good { color: #4DFF88; }
+    .acc-mid  { color: #FFD700; }
+    .acc-bad  { color: #FF4D4D; }
+    .dim      { color: #3a3a5e; }
+
+    /* Barra inline para tasa de gesto */
+    .mini-bar-wrap { display: inline-block; vertical-align: middle; width: 60px;
+                     height: 6px; background: #1a1a2e; border-radius: 3px;
+                     margin-left: 4px; }
+    .mini-bar-fill { height: 100%; border-radius: 3px; background: #9ab4f5; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Análisis por Contexto de Gesto</h1>
+    <p class="subtitle">Compara accuracy bruta vs. accuracy filtrada a frames con gesto detectado</p>
+    <nav class="phase-nav">
+      <a href="index.html" class="nav-link">← Análisis GT</a>
+      <a href="protocolo.html" class="nav-link" style="margin-left:1rem">← Protocolo guiado</a>
+    </nav>
+  </header>
+
+  <main>
+
+    <section id="dropZone" class="drop-zone">
+      <div class="drop-icon">↑</div>
+      <p class="drop-label">Arrastra el CSV exportado desde el Protocolo guiado</p>
+      <p class="drop-hint">Requiere columnas GT_Region, Gesto y Confirmado</p>
+      <input type="file" id="fileInput" accept=".csv,text/csv" style="display:none" />
+    </section>
+
+    <div id="sourceBar" class="source-bar" style="display:none">
+      <span class="source-type-tag">CSV</span>
+      <span id="fileName" class="source-name">—</span>
+      <span id="frameCount" class="source-meta">—</span>
+      <button id="reloadBtn" class="reload-btn">✕ Cambiar</button>
+    </div>
+
+    <section id="results" style="display:none">
+
+      <!-- Tres métricas -->
+      <h2 class="section-title" style="margin-bottom:0.5rem">
+        Comparación de métricas
+        <span class="section-hint">— mismo numerador, distinto denominador</span>
+      </h2>
+      <div class="metric-cards">
+        <div class="metric-card card-warn" id="cardAll">
+          <div class="mc-label">Todos los frames (bruta)</div>
+          <div class="mc-value" id="accAll">—</div>
+          <div class="mc-sub"  id="subAll">—</div>
+          <div class="mc-note">Denominador: todos los frames grabados con GT.<br>
+            Los frames sin gesto cuentan como fallo aunque el sistema acierte al no detectar.</div>
+        </div>
+        <div class="metric-card card-highlight" id="cardGesture">
+          <div class="mc-label">Solo frames con gesto</div>
+          <div class="mc-value" id="accGesture">—</div>
+          <div class="mc-sub"  id="subGesture">—</div>
+          <div class="mc-note">Denominador: frames donde el sistema detectó gesto (isGesture=Sí).<br>
+            Mide precisión espacial ignorando transiciones naturales.</div>
+        </div>
+        <div class="metric-card" id="cardConfirmed">
+          <div class="mc-label">Solo frames confirmados (dwell)</div>
+          <div class="mc-value" id="accConfirmed">—</div>
+          <div class="mc-sub"  id="subConfirmed">—</div>
+          <div class="mc-note">Denominador: frames donde se completó el dwell.<br>
+            Equivalente a la métrica de protocolo estándar.</div>
+        </div>
+      </div>
+
+      <!-- Caja de diferencia -->
+      <div id="gapBox" class="gap-box">
+        <strong>Diferencia bruta↔gesto: <span id="gapVal">—</span> pp</strong>
+        — corresponde a los frames sin gesto contados como fallo en la métrica bruta.
+        Son <span id="nonGestureCount">—</span> frames (<span id="nonGesturePct">—</span>%)
+        donde el sistema correctamente no detectó gesto pero el GT los penaliza.
+      </div>
+
+      <!-- Nota metodológica (solo si los tres son iguales = dwell 0) -->
+      <div id="dwellNotice" class="notice-box" style="display:none">
+        Las tres métricas comparten numerador porque el dwell era 0 (confirmación inmediata):
+        isGesture=Sí equivale a Confirmado=Sí en todo el CSV.
+      </div>
+
+      <!-- Tabla por región -->
+      <div class="metrics-section" style="margin-bottom:0.75rem">
+        <h3 class="section-title">Por región
+          <span class="section-hint">— verde = acc ≥ 75% · amarillo ≥ 50% · rojo &lt; 50%</span>
+        </h3>
+        <div class="table-wrap">
+          <table class="metrics-table">
+            <thead>
+              <tr>
+                <th>Región</th>
+                <th>Frames GT</th>
+                <th>Tasa gesto</th>
+                <th>Acc bruta</th>
+                <th>Acc gesto</th>
+                <th>Acc confirmado</th>
+                <th>Diferencia</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Matriz de confusión (frames con gesto) -->
+      <div class="matrix-section">
+        <h3 class="section-title">Matriz de confusión
+          <span class="section-hint">— filtrada a frames con gesto · filas: GT · columnas: detectado</span>
+        </h3>
+        <canvas id="matrixCanvas" class="matrix-canvas"></canvas>
+      </div>
+
+    </section>
+
+  </main>
+
+  <script src="analisis_gesto_main.js"></script>
+
+</body>
+</html>

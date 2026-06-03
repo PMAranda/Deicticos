@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Protocolo Guiado — Solo Raycast</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="captura.css" />
+  <link rel="stylesheet" href="protocolo.css" />
+  <script>
+    window.addEventListener('error', function(e) {
+      const el = document.getElementById('status');
+      if (el) { el.textContent = 'Error: ' + e.message; el.style.color = '#FF4D4D'; }
+    });
+  </script>
+</head>
+<body>
+
+  <header>
+    <h1>Protocolo Guiado de Evaluación — Solo Raycast</h1>
+    <p class="subtitle">Señala cada región cuando se indique · ESPACIO para avanzar · Sin detección por yema del dedo</p>
+    <nav class="phase-nav">
+      <a href="index.html" class="nav-link">← Análisis GT</a>
+      <a href="protocolo.html" class="nav-link" style="margin-left:1rem">← Protocolo estándar</a>
+    </nav>
+  </header>
+
+  <main>
+
+    <div class="status-bar">
+      <p   id="status"        class="status">Cargando modelos y OpenCV…</p>
+      <div id="calibBadge"    class="badge badge-warn">Sin calibrar</div>
+      <div id="trackingBadge" class="badge badge-off">Sin detección</div>
+      <div id="fpsBadge"      class="badge">— FPS</div>
+    </div>
+
+    <!-- Config de dwell -->
+    <div id="configBar" class="config-bar" style="display:none">
+      <div class="config-group">
+        <label class="config-label">Dwell confirmación</label>
+        <input type="range" id="dwellSlider" min="0" max="60" value="15" class="config-slider" />
+        <span id="dwellValue" class="config-value">15 f (~0,5 s)</span>
+      </div>
+      <span class="config-hint">Frames que el sistema debe mantener el gesto antes de confirmar la región</span>
+    </div>
+
+    <!-- Layout principal -->
+    <div class="proto-layout">
+
+      <!-- Vistas cámara + tablero -->
+      <div class="canvas-col">
+        <div class="view-panel">
+          <h2>Vista cámara</h2>
+          <canvas id="rawCanvas"></canvas>
+        </div>
+        <div class="view-panel" style="margin-top:0.5rem">
+          <h2>Vista tablero</h2>
+          <canvas id="boardCanvas"></canvas>
+        </div>
+      </div>
+
+      <!-- Panel de protocolo -->
+      <div class="protocol-col">
+
+        <!-- Estado: calibración -->
+        <div id="calibPanel" class="proto-card calib-card">
+          <div class="calib-icon">◎</div>
+          <p id="calibInstructions" class="calib-text">
+            Haz clic en las 4 esquinas de la pizarra: ↖ ↗ ↘ ↙
+          </p>
+          <button id="recalibBtn" class="btn btn-ghost" style="display:none">↺ Recalibrar</button>
+        </div>
+
+        <!-- Estado: listo para empezar -->
+        <div id="readyPanel" class="proto-card ready-card" style="display:none">
+          <div class="ready-icon">◉</div>
+          <p class="ready-text">Pizarra calibrada</p>
+          <p class="ready-hint">Pulsa <kbd>ESPACIO</kbd> para comenzar el protocolo</p>
+          <p class="ready-sub">Señalarás cada una de las 9 regiones de la pizarra</p>
+        </div>
+
+        <!-- Estado: esperando inicio de región -->
+        <div id="waitPanel" class="proto-card wait-card" style="display:none">
+          <div class="proto-progress-bar">
+            <div id="progressFill" class="proto-progress-fill"></div>
+          </div>
+          <p class="region-counter" id="regionCounter">Región 1 / 9</p>
+          <p class="region-name wait-name" id="waitRegionName">—</p>
+          <div class="region-grid" id="regionGrid"></div>
+          <p class="key-hint">
+            <kbd>ESPACIO</kbd> Empezar a señalar esta región
+            <span class="key-sep">·</span>
+            <kbd>⌫</kbd> Repetir anterior
+          </p>
+        </div>
+
+        <!-- Estado: grabando -->
+        <div id="recordPanel" class="proto-card record-card" style="display:none">
+          <div class="rec-indicator">
+            <span class="rec-dot"></span> GRABANDO
+          </div>
+          <p class="region-name rec-name" id="recRegionName">—</p>
+          <div class="rec-stats">
+            <span id="recFrames" class="rec-stat-val">0</span>
+            <span class="rec-stat-lbl">frames</span>
+          </div>
+          <div id="dwellBar" class="dwell-bar-wrap" style="display:none">
+            <div id="dwellFill" class="dwell-fill"></div>
+          </div>
+          <p id="confirmedBadge" class="confirmed-badge" style="display:none">✓ Región confirmada</p>
+          <p class="key-hint">
+            <kbd>ESPACIO</kbd> Siguiente región
+            <span class="key-sep">·</span>
+            <kbd>ESC</kbd> Cancelar
+          </p>
+        </div>
+
+        <!-- Estado: completado -->
+        <div id="donePanel" class="proto-card done-card" style="display:none">
+          <div class="done-icon">✓</div>
+          <p class="done-title">Protocolo completado</p>
+          <div id="doneSummary" class="done-summary"></div>
+          <div class="done-actions">
+            <button id="exportBtn" class="btn btn-export">↓ Exportar CSV</button>
+            <button id="restartBtn" class="btn btn-ghost">↺ Repetir</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Métricas rápidas (tras completar) -->
+    <section id="quickResults" style="display:none">
+      <h2 class="section-title">Resultado inmediato</h2>
+      <div id="quickPills" class="stats-pills" style="margin-bottom:0.75rem"></div>
+      <div class="matrix-section">
+        <h3 class="section-title">Matriz de confusión <span class="section-hint">— filas: GT · columnas: detectado</span></h3>
+        <canvas id="matrixCanvas" class="matrix-canvas"></canvas>
+      </div>
+    </section>
+
+  </main>
+
+  <video id="video" playsinline muted style="display:none"></video>
+
+  <script>
+    var Module = {
+      onRuntimeInitialized: function () {
+        window.cvReady = true; window.cv = cv;
+        window.Module = undefined; delete window.Module;
+        window.dispatchEvent(new Event('opencv-ready'));
+      }
+    };
+  </script>
+  <script defer src="https://docs.opencv.org/4.8.0/opencv.js"
+          onerror="document.getElementById('status').textContent='Error: OpenCV no disponible.';document.getElementById('status').style.color='#FF4D4D';">
+  </script>
+  <script type="module" src="protocolo_raycast_main.js"></script>
+
+</body>
+</html>
