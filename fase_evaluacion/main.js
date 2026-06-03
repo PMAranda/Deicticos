@@ -64,9 +64,10 @@ class EvalApp {
     this._metricsBody   = document.getElementById('metricsBody');
 
     // State
-    this._frames  = [];
-    this._results = null;
-    this._isRaw   = false;   // true si el CSV no tiene columna Confirmado
+    this._frames        = [];
+    this._results       = null;
+    this._isRaw         = false;  // true si el CSV no tiene columna Confirmado
+    this._hasEmbeddedGT = false;  // true si el CSV tiene columna GT_Region (de protocolo.html)
 
     this._bindEvents();
     this._initRegionOrder();
@@ -163,7 +164,8 @@ class EvalApp {
     reader.onload = e => {
       const text   = e.target.result;
       const header = text.split('\n')[0] ?? '';
-      this._isRaw  = !header.includes('Confirmado');
+      this._isRaw         = !header.includes('Confirmado');
+      this._hasEmbeddedGT =  header.includes('GT_Region');
       this._frames = this._parseCSV(text);
       if (!this._frames.length) {
         alert('El CSV no tiene datos o el formato no es compatible.');
@@ -171,13 +173,22 @@ class EvalApp {
       }
       const dur = this._frames[this._frames.length - 1].time;
       this._fileNameEl.textContent   = file.name;
-      this._frameCountEl.textContent = `${this._frames.length} frames · ${this._isRaw ? 'bruto' : 'procesado'}`;
       this._videoDurEl.textContent   = `${dur.toFixed(1)} s`;
-      this._sourceBar.style.display     = 'flex';
-      this._configSection.style.display = 'block';
+      this._sourceBar.style.display      = 'flex';
       this._resultsSection.style.display = 'none';
-      this._rawNotice.style.display     = this._isRaw ? 'flex' : 'none';
-      this._updatePreview();
+
+      if (this._hasEmbeddedGT) {
+        // CSV de protocolo.html: GT embebido, no hace falta configurar segmentos
+        this._frameCountEl.textContent    = `${this._frames.length} frames · protocolo (GT embebido)`;
+        this._configSection.style.display = 'none';
+        this._rawNotice.style.display     = 'flex';  // mostrar slider de dwell
+        this._analyze();
+      } else {
+        this._frameCountEl.textContent    = `${this._frames.length} frames · ${this._isRaw ? 'bruto' : 'procesado'}`;
+        this._configSection.style.display = 'block';
+        this._rawNotice.style.display     = this._isRaw ? 'flex' : 'none';
+        this._updatePreview();
+      }
     };
     reader.readAsText(file);
   }
@@ -196,6 +207,7 @@ class EvalApp {
         isGesture: o['Gesto']     === 'Sí' || o['Gesto'] === '1',
         confirmed: isRawRow ? null : (o['Confirmado'] === 'Sí' || o['Confirmado'] === '1'),
         region:    o['Region']    ?? '',
+        gtRegion:  o['GT_Region'] || null,
         confidence: parseFloat(o['Confianza(%)']) || 0,
         mode:      o['Modo'] ?? '',
         xn:        parseFloat(o['X_norm']) || 0,
@@ -241,7 +253,25 @@ class EvalApp {
     ).join('');
   }
 
-  // ── Dwell simulation (para CSV bruto) ─────────────────────────────────────
+  // ── Segmentos desde GT embebido ──────────────────────────────────────────
+
+  _buildSegmentsFromEmbeddedGT() {
+    const segments = [];
+    let cur = null;
+    this._frames.forEach(f => {
+      if (!f.gtRegion) { if (cur) { segments.push(cur); cur = null; } return; }
+      if (!cur || cur.region !== f.gtRegion) {
+        if (cur) segments.push(cur);
+        cur = { region: f.gtRegion, start: f.time, end: f.time };
+      } else {
+        cur.end = f.time;
+      }
+    });
+    if (cur) segments.push(cur);
+    return segments;
+  }
+
+  // ── Dwell simulation (para CSV bruto o protocolo) ─────────────────────────
 
   _applyDwell(frames, dwellFrames) {
     let count = 0, confirmed = false;
@@ -258,17 +288,20 @@ class EvalApp {
 
   _analyze() {
     if (!this._frames.length) return;
-    const segments = this._buildSegments();
-    const dwellFrames  = this._isRaw ? Number(this._dwellSlider?.value ?? 30) : 0;
-    const workFrames   = this._isRaw ? this._applyDwell(this._frames, dwellFrames) : this._frames;
-    const useConfirmed = this._isRaw ? true : this._detModeEl.value === 'confirmed';
+    const useEmbedded  = this._hasEmbeddedGT;
+    const segments     = useEmbedded ? this._buildSegmentsFromEmbeddedGT() : this._buildSegments();
+    const dwellFrames  = (useEmbedded || this._isRaw) ? Number(this._dwellSlider?.value ?? 0) : 0;
+    const workFrames   = (useEmbedded || this._isRaw) ? this._applyDwell(this._frames, dwellFrames) : this._frames;
+    const useConfirmed = (useEmbedded || this._isRaw) ? true : this._detModeEl.value === 'confirmed';
 
     // Asignar GT a cada frame
     const annotated = workFrames.map(f => {
-      const seg = segments.find(s => f.time >= s.start && f.time < s.end);
+      const gtRegion = useEmbedded
+        ? f.gtRegion
+        : (segments.find(s => f.time >= s.start && f.time < s.end)?.region ?? null);
       const detected = (useConfirmed ? f.confirmed : f.isGesture) && f.region
         ? f.region : null;
-      return { ...f, gtRegion: seg?.region ?? null, detected };
+      return { ...f, gtRegion, detected };
     });
 
     this._results = { ...this._computeMetrics(annotated, segments), annotated, segments,
@@ -390,8 +423,8 @@ class EvalApp {
     this._drawConfusionMatrix();
     this._renderMetricsTable();
 
-    // Curva solo para CSV bruto
-    if (this._isRaw) {
+    // Curva para CSV bruto o protocolo con GT embebido
+    if (this._isRaw || this._hasEmbeddedGT) {
       this._curveSection.style.display = 'block';
       this._drawDwellCurve(r.segments);
     } else {
@@ -597,12 +630,15 @@ class EvalApp {
     ctx.fillRect(0, 0, W, H);
 
     // Calcular accuracy y latencia para cada umbral
+    const useEmbedded = this._hasEmbeddedGT;
     const points = DWELL_SWEEP.map(d => {
       const worked  = this._applyDwell(this._frames, d);
       const annotated = worked.map(f => {
-        const seg      = segments.find(s => f.time >= s.start && f.time < s.end);
+        const gtRegion = useEmbedded
+          ? f.gtRegion
+          : (segments.find(s => f.time >= s.start && f.time < s.end)?.region ?? null);
         const detected = f.confirmed && f.region ? f.region : null;
-        return { ...f, gtRegion: seg?.region ?? null, detected };
+        return { ...f, gtRegion, detected };
       });
       const gtF   = annotated.filter(f => f.gtRegion !== null);
       const total = gtF.length;

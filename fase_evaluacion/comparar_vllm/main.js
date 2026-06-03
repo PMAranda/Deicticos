@@ -294,6 +294,7 @@ function readAsDataURL(file) {
 function navigateTo(idx) {
   if (idx < 0 || idx >= state.images.length) return;
   state.idx = idx;
+  state.calibration = null;
   drawFrame();
   loadResultIntoUI();
   document.getElementById('img-counter').textContent = `${idx + 1} / ${state.images.length}`;
@@ -301,8 +302,6 @@ function navigateTo(idx) {
   document.getElementById('vllm-status').textContent = '';
   document.getElementById('vllm-status').className = 'vllm-status';
   document.getElementById('raw-box').style.display = 'none';
-  // Auto-evaluar con el sistema si está listo y la imagen aún no tiene resultado
-  if (sysState.ready && currentResult().sys == null) autoRunSystem();
 }
 
 function loadResultIntoUI() {
@@ -708,6 +707,10 @@ function setSysStatus(text, cls = '') {
 
 async function initSystem() {
   if (sysState.loading) return;
+  if (sysState.ready) {
+    autoRunSystem();
+    return;
+  }
   sysState.loading = true;
   setSysStatus('Cargando modelos…', 'loading');
   try {
@@ -719,7 +722,7 @@ async function initSystem() {
     sysState.ready   = true;
     sysState.loading = false;
     setSysStatus('Listo ✓', 'ok');
-    if (state.idx >= 0) autoRunSystem();
+    autoRunSystem();
   } catch (err) {
     sysState.loading = false;
     setSysStatus(`Error: ${err.message}`, 'error');

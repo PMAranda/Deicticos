@@ -32,13 +32,15 @@ const HANDS_WEIGHTS = {
  * @returns {{ vector: {x,y}|null, weights: Object, mode: string }}
  */
 export function fuseVectors(vectors, visibility, hasHands, handsReliable = false) {
-  const VIS_MIN   = 0.4;   // visibilidad mínima para usar un landmark
-  const VIS_INDEX = 0.35;  // umbral más permisivo para el índice (Hands es más ruidoso)
+  const VIS_MIN        = 0.4;   // visibilidad mínima para usar un landmark
+  const VIS_INDEX_H    = 0.35;  // umbral para el índice cuando Hands está activo
+  const VIS_INDEX_POSE = 0.15;  // umbral permisivo para el índice de Pose como fallback
 
   const useBase   = vectors.shoulderElbow !== null && visibility.shoulder >= VIS_MIN && visibility.elbow >= VIS_MIN;
   const useSW     = vectors.shoulderWrist !== null && visibility.wrist    >= VIS_MIN;
   const useEW     = vectors.elbowWrist    !== null && visibility.elbow    >= VIS_MIN && visibility.wrist >= VIS_MIN;
-  const useIndex  = vectors.wristIndex    !== null && (hasHands || visibility.index >= VIS_INDEX);
+  const useIndex  = vectors.wristIndex    !== null &&
+    (hasHands ? visibility.index >= VIS_INDEX_H : visibility.index >= VIS_INDEX_POSE);
 
   if (!useBase) {
     return { vector: null, weights: {}, mode: 'lost' };
