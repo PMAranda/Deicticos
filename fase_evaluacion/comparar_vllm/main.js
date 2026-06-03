@@ -43,6 +43,28 @@ function regionFromNorm(xn, yn) {
   return `${row}-${col}`;
 }
 
+// ── Redimensionado de imagen para VLLM ───────────────────────────────────────
+// Muchos modelos ignoran o malinterpretan imágenes muy grandes.
+// Redimensionamos a max 1120px manteniendo aspecto, en JPEG calidad 0.85.
+
+function resizeForVLLM(dataUrl, maxSide = 1120) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
+      const w = Math.round(img.naturalWidth  * scale);
+      const h = Math.round(img.naturalHeight * scale);
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      const resized = c.toDataURL('image/jpeg', 0.85).split(',')[1];
+      console.log(`[VLLM] imagen: ${img.naturalWidth}×${img.naturalHeight} → ${w}×${h} (${Math.round(resized.length/1024)} KB base64)`);
+      resolve(resized);
+    };
+    img.src = dataUrl;
+  });
+}
+
 // ── Constantes ────────────────────────────────────────────────────────────────
 
 const REGIONS = [
@@ -69,14 +91,14 @@ const REGION_ALIASES = {
 };
 
 const DEFAULT_PROMPT =
-`In this image a person may or may not be making a pointing gesture.
+`In this image a person may or may not be making a pointing gesture. There may or may not be a whiteboard visible.
 
 Possible scenarios:
 1. The person is NOT making a pointing gesture → answer: no_pointing
-2. The person IS pointing, but NOT toward the whiteboard (e.g. pointing at a screen, door, or another object) → answer: fuera_pizarra
-3. The person IS pointing toward the whiteboard → answer with the region (see grid below)
+2. The person IS pointing, but there is no whiteboard in the image, or they are not pointing at the whiteboard → answer: fuera_pizarra
+3. The person IS pointing at the whiteboard → answer with the region they are pointing at (see grid below)
 
-The whiteboard is divided into a 3×3 grid of 9 regions:
+If pointing at the whiteboard, it is divided into a 3×3 grid:
 Row 1 (top):    top-left (superior-izquierda) | top-center (superior-centro) | top-right (superior-derecha)
 Row 2 (middle): middle-left (medio-izquierda) | middle-center (medio-centro) | middle-right (medio-derecha)
 Row 3 (bottom): bottom-left (inferior-izquierda) | bottom-center (inferior-centro) | bottom-right (inferior-derecha)
@@ -186,7 +208,7 @@ function parseRegion(raw) {
 
   const find = t => {
     for (const r of REGIONS) if (t.includes(r)) return r;
-    if (t.includes('no_pointing') || t.includes('no pointing') || t.includes('not pointing')) return NO_POINTING;
+    if (t.includes('no_pointing') || t.includes('no-pointing') || t.includes('no pointing') || t.includes('not pointing')) return NO_POINTING;
     if (t.includes('fuera') || t.includes('outside') || t.includes('off board') ||
         t.includes('not at') || t.includes('away from')) return FUERA_PIZARRA;
     for (const [alias, canon] of Object.entries(REGION_ALIASES)) if (t.includes(alias)) return canon;
@@ -384,7 +406,7 @@ async function queryVLLM() {
     return;
   }
 
-  const base64 = state.images[state.idx].dataUrl.split(',')[1];
+  const base64 = await resizeForVLLM(state.images[state.idx].dataUrl);
   const t0 = Date.now();
 
   try {
@@ -770,8 +792,8 @@ async function autoRunSystem() {
         region = computeRegionFromResult(result, W, H, corners) ?? FUERA_PIZARRA;
         setSysStatus(`→ ${region}  (${Math.round(result.rawConfidence*100)}% conf.)`, 'ok');
       } else {
-        region = null;
-        setSysStatus(`Gesto detectado — calibra la pizarra`, 'loading');
+        region = FUERA_PIZARRA;
+        setSysStatus(`Gesto detectado, sin pizarra calibrada → fuera_pizarra`, 'ok');
       }
     }
 
@@ -800,12 +822,9 @@ document.getElementById('chk-grid').addEventListener('change', drawFrame);
 
 document.getElementById('sel-backend').addEventListener('change', e => {
   const v = e.target.value;
-  document.getElementById('cfg-ollama').style.display    = v === 'ollama'    ? '' : 'none';
-  document.getElementById('cfg-openai').style.display    = v === 'openai'    ? '' : 'none';
-  document.getElementById('cfg-gemini').style.display    = v === 'gemini'    ? '' : 'none';
-  document.getElementById('cfg-anthropic').style.display = v === 'anthropic' ? '' : 'none';
-  document.getElementById('cfg-together').style.display  = v === 'together'  ? '' : 'none';
-  document.getElementById('cfg-manual').style.display    = v === 'manual'    ? '' : 'none';
+  document.getElementById('cfg-ollama').style.display = v === 'ollama' ? '' : 'none';
+  document.getElementById('cfg-openai').style.display = v === 'openai' ? '' : 'none';
+  document.getElementById('cfg-manual').style.display = v === 'manual' ? '' : 'none';
   if (v === 'ollama') fetchOllamaModels();
   else syncActiveModel();
 });
