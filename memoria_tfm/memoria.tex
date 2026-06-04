@@ -469,7 +469,7 @@ Con la popularización de los sensores de profundidad RGB-D, como el Microsoft K
 
 \subsection{Enfoques basados en cámara RGB monocular}
 
-La detección de gestos de \textit{pointing} a partir de una única cámara de color presenta el reto fundamental de que la dirección tridimensional del brazo está indeterminada: el rayo proyectivo de la cámara colapsa toda la información de profundidad en un punto 2D. Los enfoques clásicos abordaban este problema mediante segmentación de la mano por color de piel, seguimiento del brazo con contornos o filtros de partículas y estimación de la dirección como el vector entre el hombro y el extremo distal; sin embargo, son frágiles ante cambios de iluminación, ropa de manga larga o fondos complejos. La irrupción de modelos de estimación de pose de alta calidad como BlazePose \citep{bazarevsky2020blazepose} y OpenPose \citep{cao2017realtime} abrió una segunda generación en la que los \textit{landmarks} del miembro superior —hombro, codo, muñeca, yemas de los dedos— se obtienen directamente sin segmentación manual, permitiendo estimar la dirección de \textit{pointing} como una composición ponderada de los vectores articulares del brazo en el plano imagen. Este enfoque es el adoptado en el presente trabajo, donde se propone una heurística de fusión jerárquica de cuatro vectores del miembro superior, con ponderación adaptativa según la disponibilidad de cada \textit{landmark} y la fiabilidad de la estimación de Hands.
+La detección de gestos de \textit{pointing} a partir de una única cámara de color presenta el reto fundamental de que la dirección tridimensional del brazo está indeterminada: el rayo proyectivo de la cámara colapsa toda la información de profundidad en un punto 2D. Los enfoques clásicos abordaban este problema mediante segmentación de la mano por color de piel, seguimiento del brazo con contornos o filtros de partículas y estimación de la dirección como el vector entre el hombro y el extremo distal del brazo —es decir, la parte más alejada del tronco, correspondiente a la muñeca o los dedos—; sin embargo, son frágiles ante cambios de iluminación, ropa de manga larga o fondos complejos. La irrupción de modelos de estimación de pose de alta calidad como BlazePose \citep{bazarevsky2020blazepose} y OpenPose \citep{cao2017realtime} abrió una segunda generación en la que los \textit{landmarks} del miembro superior —hombro, codo, muñeca, yemas de los dedos— se obtienen directamente sin segmentación manual, permitiendo estimar la dirección de \textit{pointing} como una composición ponderada de los vectores articulares del brazo en el plano imagen. Este enfoque es el adoptado en el presente trabajo, donde se propone una heurística de fusión jerárquica de cuatro vectores del miembro superior, con ponderación adaptativa según la disponibilidad de cada \textit{landmark} y la fiabilidad de la estimación de Hands.
 
 Dos trabajos recientes ilustran el estado del arte en este segundo paradigma. \citet{bamani2025pointingnet} proponen PointingNet, un sistema que combina estimación de pose corporal con segmentación del brazo apuntador para reducir el error angular de la dirección estimada desde los 28° típicos de los modelos de pose generales hasta menos de 2°, alcanzando tasas de reconocimiento del 96\% con una sola webcam. \citet{nakamura2023deepoint} presentan DeePoint —presentado en ICCV 2023—, una arquitectura basada en Vision Transformers que estima simultáneamente la presencia del gesto y la dirección de pointing, aprovechando la coordinación espacio-temporal del tronco y las extremidades de forma global en lugar de centrarse únicamente en los landmarks proximales del brazo. Ambos sistemas confirman que los enfoques de fusión que combinan múltiples segmentos del miembro superior superan los métodos de vector único.
 
@@ -579,9 +579,62 @@ MediaPipe Hands \citep{zhang2020mediapipe} proporciona 21 \textit{landmarks} por
 
 \subsection{Estabilidad temporal de los landmarks}
 
-La evaluación experimental de la Fase 2 mostró que los \textit{landmarks} proximales de BlazePose —hombro y codo— presentan la mayor estabilidad temporal, con jitter medio inferior a 0.004 unidades normalizadas (umbral de la categoría «estable» del sistema). Los \textit{landmarks} distales —muñeca— exhiben mayor varianza, especialmente en posturas no frontales. Este hallazgo informa directamente el diseño de la heurística de la Fase 3: los vectores proximales actúan como ancla de estabilidad, mientras que el dedo índice de MediaPipe Hands —estimado por un modelo especializado con mayor precisión distal— refina la dirección cuando demuestra coherencia sostenida.
+Antes de diseñar la heurística de pointing, se realizó un estudio de caracterización de la calidad de los \textit{landmarks} de BlazePose en función de la distancia y las condiciones de iluminación. Se registraron siete sesiones variando la distancia sujeto--cámara (0{,}8\,m, 1{,}8\,m, 2{,}8\,m y 3{,}8\,m) y las condiciones de iluminación (directa intensa y ambiente normal), midiendo el jitter medio en ventana de 30 \textit{frames} y el porcentaje de visibilidad de cada \textit{landmark}. Los resultados se recogen en las Tablas~\ref{tab:jitter} y~\ref{tab:visibilidad}, y se visualizan en la Figura~\ref{fig:fase2_landmarks}.
 
-El módulo \texttt{StabilityTracker} cuantifica el jitter de cada \textit{landmark} mediante una ventana deslizante de 30 \textit{frames}: calcula la varianza de posición en ese intervalo y clasifica el \textit{landmark} en tres niveles: estable (jitter $< 0.004$), moderado ($0.004$--$0.012$) e inestable ($> 0.012$).
+\begin{table}[htbp]
+\caption{\label{tab:jitter}Jitter medio (‰) por \textit{landmark}, distancia e iluminación. Sombreado: \colorbox{green!25}{verde} = estable ($<$4‰) · \colorbox{yellow!35}{amarillo} = moderado (4--12‰) · \colorbox{red!20}{rojo} = inestable ($>$12‰).}
+\begin{tabular}{llccc}
+\hline
+\textbf{Distancia} & \textbf{Iluminación} & \textbf{Hombro (‰)} & \textbf{Codo (‰)} & \textbf{Muñeca (‰)} \\
+\hline
+\multirow{2}{*}{0{,}8\,m}
+  & Fuerte & \cellcolor{yellow!35}9{,}5  & \cellcolor{red!20}18{,}5  & \cellcolor{red!20}33{,}1 \\
+  & Normal & \cellcolor{green!25}3{,}2  & \cellcolor{yellow!35}9{,}0 & \cellcolor{red!20}16{,}4 \\
+\hline
+\multirow{2}{*}{1{,}8\,m}
+  & Fuerte & \cellcolor{yellow!35}7{,}5  & \cellcolor{yellow!35}11{,}6 & \cellcolor{red!20}18{,}5 \\
+  & Normal & \cellcolor{green!25}1{,}2  & \cellcolor{green!25}3{,}3  & \cellcolor{yellow!35}5{,}0 \\
+\hline
+\multirow{2}{*}{2{,}8\,m}
+  & Fuerte & \cellcolor{green!25}3{,}7  & \cellcolor{yellow!35}6{,}8  & \cellcolor{yellow!35}8{,}5 \\
+  & Normal & \cellcolor{green!25}1{,}4  & \cellcolor{green!25}3{,}1  & \cellcolor{yellow!35}4{,}5 \\
+\hline
+3{,}8\,m
+  & Fuerte & \cellcolor{green!25}2{,}2  & \cellcolor{yellow!35}4{,}1  & \cellcolor{yellow!35}6{,}5 \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+\caption{\label{tab:visibilidad}Visibilidad media de la muñeca (\%) por distancia e iluminación. \colorbox{red!20}{Rojo}: por debajo del objetivo del 90\,\%.}
+\begin{tabular}{lcc}
+\hline
+\textbf{Distancia} & \textbf{Luz fuerte} & \textbf{Luz normal} \\
+\hline
+0{,}8\,m & \cellcolor{red!20}74{,}2\,\% & \cellcolor{red!20}77{,}9\,\% \\
+1{,}8\,m & \cellcolor{green!25}90{,}3\,\% & \cellcolor{green!25}97{,}0\,\% \\
+2{,}8\,m & \cellcolor{green!25}91{,}5\,\% & \cellcolor{green!25}95{,}4\,\% \\
+3{,}8\,m & \cellcolor{green!25}91{,}8\,\% & — \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{fase2_landmarks.pdf}
+  \caption{\label{fig:fase2_landmarks}
+    Calidad de los \textit{landmarks} de BlazePose por distancia e iluminación. De izquierda a derecha: gradiente de estabilidad entre landmarks, efecto de la iluminación sobre el jitter de la muñeca, y visibilidad de la muñeca. Zonas de color según niveles de la Tabla~\ref{tab:jitter}.}
+\end{figure}
+
+El estudio reveló tres hallazgos con implicaciones directas en el diseño de la Fase~3.
+
+\textbf{Hallazgo 1 — Gradiente de estabilidad hombro\,$>$\,codo\,$>$\,muñeca.} El hombro nunca supera la zona moderada y alcanza el umbral estable ($<$4‰) a partir de 2{,}8\,m. El codo parte de zona inestable a 0{,}8\,m (18{,}5‰ con luz fuerte) y converge a zona moderada a 1{,}8\,m. La muñeca de BlazePose es el \textit{landmark} más inestable: con iluminación fuerte no alcanza el umbral estable en ninguna de las cuatro distancias medidas. La alta visibilidad del hombro —superior al 99\,\% en todas las sesiones— contrasta con la variabilidad del resto. Este gradiente indicó que no todos los vectores articulares son igualmente fiables, lo que llevó a diseñar una fusión jerárquica ponderada en la que los segmentos más proximales —los más cercanos al tronco, como el hombro y el codo— tienen mayor influencia sobre la dirección estimada. Los pesos concretos se describen en la Sección~\ref{sec:fusion}.
+
+\textbf{Hallazgo 2 — Efecto de la iluminación.} Con iluminación directa intensa, el jitter de la muñeca a 0{,}8\,m es de 33{,}1‰; con iluminación ambiente, cae a 16{,}4‰ en la misma distancia —una reducción del 50\,\%—. Con luz normal, la muñeca ya alcanza zona moderada a 1{,}8\,m (5{,}0‰), mientras que con luz fuerte no cruza ese umbral en ninguna distancia medida. La sobreexposición degrada la calidad de las estimaciones del modelo en regiones de alta saturación. Estos resultados, contraintuitivos respecto a la percepción habitual de que «más luz es mejor», establecieron las condiciones de uso recomendadas para el sistema: iluminación ambiente y distancia mínima de 1{,}5\,m.
+
+\textbf{Hallazgo 3 — Visibilidad de la muñeca a distancia corta.} A 0{,}8\,m, la muñeca solo es visible en el 74{,}2\,\% de los \textit{frames} con luz fuerte y en el 77{,}9\,\% con luz normal, ambos por debajo del objetivo del 90\,\%. A partir de 1{,}8\,m la visibilidad supera el 90\,\% en todas las condiciones. Esta degradación a distancia corta, combinada con el alto jitter, reveló que la muñeca no es un \textit{landmark} fiable en el rango de uso cercano, lo que motivó incorporar una restricción de alcance mínimo en la validación del gesto que se detalla en la Sección~\ref{sec:validacion}. Cabe destacar que el porcentaje de \textit{tracking} perdido fue del 0\,\% en todas las sesiones, lo que confirma la robustez de BlazePose ante pérdidas totales de seguimiento.
+
+El módulo \texttt{StabilityTracker} cuantifica el jitter de cada \textit{landmark} mediante una ventana deslizante de 30 \textit{frames}: calcula la varianza de posición en ese intervalo y clasifica el \textit{landmark} en tres niveles: estable (jitter $< 0{,}004$), moderado ($0{,}004$--$0{,}012$) e inestable ($> 0{,}012$). Estos umbrales determinan en tiempo de ejecución si la estimación de Hands es suficientemente coherente con la de Pose para activar los pesos \textsc{hands} de la fusión vectorial, que elevan el peso del vector distal $\vec{v}_{WI}$ al 60\,\%.
 
 \section{Fase 3: Heurística de detección de pointing}
 
@@ -611,6 +664,7 @@ Para el vector $\vec{v}_{WI}$ se aplica una selección jerárquica de la fuente:
 La asignación de la mano de Hands al brazo activo se realiza por proximidad geométrica: se busca la mano cuya muñeca de Hands esté dentro de un umbral de 0.15 unidades normalizadas respecto a la muñeca estimada por Pose. Esta estrategia es más robusta que la asignación por etiqueta \textit{Left}/\textit{Right}, que puede ser incorrecta cuando el usuario está orientado lateralmente respecto a la cámara.
 
 \subsection{Fusión jerárquica ponderada}
+\label{sec:fusion}
 
 La función \texttt{fuseVectors()} combina los vectores disponibles en un único vector de \textit{pointing} $\hat{d}$ mediante una suma ponderada de vectores unitarios:
 
@@ -642,6 +696,7 @@ En la tabla HANDS —activa cuando Hands demuestra coherencia sostenida—, el v
 El modo de operación se determina según los vectores activos: \textit{full} (los cuatro vectores disponibles), \textit{partial} (sin $\vec{v}_{WI}$ o sin alguno de los vectores intermedios), \textit{fallback} (solo $\vec{v}_{SE}$) o \textit{lost} (sin \textit{landmark} de hombro visible).
 
 \subsection{Validación biomecánica del gesto}
+\label{sec:validacion}
 
 La función \texttt{validateGesture()} verifica si la configuración del brazo es compatible con un gesto deíctico mediante tres comprobaciones ordenadas por coste computacional ascendente.
 
