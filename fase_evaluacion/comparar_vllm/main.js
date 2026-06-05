@@ -88,17 +88,19 @@ const REGION_ALIASES = {
   'no pointing': NO_POINTING, 'not pointing': NO_POINTING, 'none': NO_POINTING, 'ninguna': NO_POINTING,
   'fuera_pizarra': FUERA_PIZARRA, 'fuera pizarra': FUERA_PIZARRA, 'outside board': FUERA_PIZARRA,
   'pointing elsewhere': FUERA_PIZARRA, 'not at whiteboard': FUERA_PIZARRA, 'not at the whiteboard': FUERA_PIZARRA,
+  'not at the screen': FUERA_PIZARRA, 'not at the tv': FUERA_PIZARRA, 'not at the display': FUERA_PIZARRA,
+  'not at screen': FUERA_PIZARRA, 'away from': FUERA_PIZARRA, 'outside the display': FUERA_PIZARRA,
 };
 
 const DEFAULT_PROMPT =
-`In this image a person may or may not be making a pointing gesture. There may or may not be a whiteboard visible.
+`In this image a person may or may not be making a pointing gesture toward a display surface. The display surface can be a whiteboard, blackboard, TV screen, monitor, projector screen, or any flat panel mounted on the wall.
 
 Possible scenarios:
 1. The person is NOT making a pointing gesture → answer: no_pointing
-2. The person IS pointing, but there is no whiteboard in the image, or they are not pointing at the whiteboard → answer: fuera_pizarra
-3. The person IS pointing at the whiteboard → answer with the region they are pointing at (see grid below)
+2. The person IS pointing, but NOT toward any display surface visible in the image → answer: fuera_pizarra
+3. The person IS pointing at the display surface (whiteboard, TV, screen, or board) → answer with the region they are pointing at (see grid below)
 
-If pointing at the whiteboard, it is divided into a 3×3 grid:
+If pointing at the display surface, it is divided into a 3×3 grid:
 Row 1 (top):    top-left (superior-izquierda) | top-center (superior-centro) | top-right (superior-derecha)
 Row 2 (middle): middle-left (medio-izquierda) | middle-center (medio-centro) | middle-right (medio-derecha)
 Row 3 (bottom): bottom-left (inferior-izquierda) | bottom-center (inferior-centro) | bottom-right (inferior-derecha)
