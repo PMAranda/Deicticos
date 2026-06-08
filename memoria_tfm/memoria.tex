@@ -795,6 +795,15 @@ El valor de $D$ determina el equilibrio entre robustez y latencia: valores altos
 La Fase 5 expone mediante controles deslizantes en la interfaz de usuario los dos parámetros de estabilización más críticos para la experiencia: el umbral de \textit{dwell} ($D$) y el \textit{debounce} de región ($N$). Ambos son modificables en tiempo real sin reiniciar el sistema, lo que facilita la exploración empírica de su efecto durante una sesión de evaluación y permite adaptar el sistema a distintos contextos de uso.
 
 
+\section{Aplicación de demostración integrada}
+\label{sec:demo}
+
+Con el fin de validar la integración del sistema completo en un escenario de uso real, se desarrolló una aplicación de demostración (\texttt{demo/}) que combina el pipeline de las fases~1--5 con una arquitectura de presentación colaborativa profesor-alumno.
+
+La aplicación se compone de un servidor Node.js que gestiona la comunicación en tiempo real mediante WebSockets y sirve los recursos estáticos con acceso compartido a los módulos del proyecto. La interfaz del profesor permite cargar una presentación en formato PDF, navegar entre diapositivas y activar la cámara para comenzar la sesión gestual: el usuario calibra la pantalla seleccionando sus cuatro esquinas visibles en la imagen de cámara, tras lo cual el pipeline completo (PoseEstimator $\rightarrow$ HandEstimator $\rightarrow$ extractDeicticLandmarks $\rightarrow$ PointingEstimator $\rightarrow$ BoardGrounding) opera en bucle continuo. Cuando se detecta un gesto de \textit{pointing} confirmado por \textit{dwell}, la aplicación extrae un fotograma de la diapositiva activa y lo envía al modelo VLLM local (Ollama) junto con un \textit{prompt} que incluye la región señalada; la respuesta se transmite progresivamente mediante \textit{streaming} a los alumnos conectados. La interfaz del alumno recibe en tiempo real los cambios de diapositiva, la posición del puntero y las descripciones generadas, proporcionando una experiencia accesible sin necesidad de hardware adicional.
+
+La carga de los modelos MediaPipe se realiza de forma diferida al activar la cámara, evitando que la descarga de los ficheros WASM bloquee el arranque de la interfaz. Se aplicó además el parche documentado en el \textit{issue}~\#5282 de OpenCV.js, que consiste en destruir la variable global \texttt{window.Module} tras la inicialización de OpenCV para evitar que el entorno WASM de MediaPipe intente fusionarse con él y congele el navegador.
+
 %----------
 %	CAPÍTULO 4 — EVALUACIÓN EXPERIMENTAL
 %----------
@@ -1051,6 +1060,8 @@ Este trabajo ha demostrado que es posible construir un sistema completo de recon
 
 \textbf{O6 — Metodología de evaluación.} Se diseñaron tres protocolos complementarios: un estudio de ablación sobre imágenes estáticas que permite comparar configuraciones heurísticas de forma controlada; una evaluación de \textit{fingerprint} espacial mediante vídeo con movimiento continuo y anotación \textit{frame} a \textit{frame} en cuatro orientaciones del usuario; y un comparador con modelos VLLM ejecutados localmente sobre un conjunto de 20 imágenes. Este último confirma que el \textit{grounding} espacial fino requiere geometría explícita: el mejor VLLM evaluado alcanza el 25\,\% de exactitud de región, frente al 87\,\% del sistema desarrollado, y opera cinco órdenes de magnitud más lento.
 
+La aplicación de demostración descrita en la Sección~\ref{sec:demo} acredita que el sistema es operativo de extremo a extremo en un entorno de aula real, con calibración en vivo, detección de gesto continua y descripción por IA transmitida en tiempo real a los dispositivos de los alumnos.
+
 En conjunto, el sistema cumple todos los objetivos específicos planteados y ofrece un rendimiento operativo adecuado para el caso de uso principal: un presentador en vista frontal o semilateral señalando una pizarra a 1{,}5\,m de la cámara, con precisión de región superior al 82\,\% en todos los escenarios evaluados. Este módulo de \textit{grounding} gestual está diseñado para integrarse con el módulo de transcripción de audio desarrollado en paralelo, de forma que la combinación de ambas salidas permita generar descripciones accesibles en tiempo real para estudiantes con discapacidad visual: el audio aporta el contenido semántico de la explicación y este trabajo aporta la referencia espacial concreta del gesto.
 
 \section{Trabajo Futuro}
@@ -1125,15 +1136,56 @@ Possible scenarios:
    -> answer with the region they are pointing at (see grid below)
 
 If pointing at the display surface, it is divided into a 3x3 grid:
-Row 1 (top):    top-left    (superior-izquierda) |
-                top-center  (superior-centro)    |
-                top-right   (superior-derecha)
-Row 2 (middle): middle-left  (medio-izquierda)  |
-                middle-center (medio-centro)     |
+Row 1 (top):    top-left (superior-izquierda) |
+                top-center (superior-centro)  |
+                top-right (superior-derecha)
+Row 2 (middle): middle-left (medio-izquierda)   |
+                middle-center (medio-centro)    |
                 middle-right (medio-derecha)
-Row 3 (bottom): bottom-left  (inferior-izquierda) |
+Row 3 (bottom): bottom-left (inferior-izquierda)  |
                 bottom-center (inferior-centro)   |
-                bottom-right  (inferior-derecha)
+                bottom-right (inferior-derecha)
+
+Answer with ONLY one of these exact identifiers:
+no_pointing | fuera_pizarra
+superior-izquierda | superior-centro | superior-derecha
+medio-izquierda    | medio-centro    | medio-derecha
+inferior-izquierda | inferior-centro | inferior-derecha
+
+One identifier only. No explanation.
+\end{lstlisting}
+
+\section{Prompt de la condición \textit{few-shot}}
+\label{sec:prompt_fewshot}
+
+En la condición \textit{few-shot} se empleó un \textit{prompt} distinto al de la condición normal. La diferencia principal es que incluye una instrucción explícita de formato de respuesta y una indicación de que se proporcionarán imágenes de ejemplo previas:
+
+\begin{lstlisting}[numbers=none, basicstyle=\ttfamily\footnotesize, breaklines=true]
+In this image a person may or may not be making a pointing gesture
+toward a display surface. The display surface can be a whiteboard,
+blackboard, TV screen, monitor, projector screen, or any flat panel
+mounted on the wall.
+
+Possible scenarios:
+1. The person is NOT making a pointing gesture
+   -> answer: no_pointing
+2. The person IS pointing, but NOT toward any display surface
+   visible in the image
+   -> answer: fuera_pizarra
+3. The person IS pointing at the display surface (whiteboard, TV,
+   screen, or board)
+   -> answer with the region they are pointing at (see grid below)
+
+If pointing at the display surface, it is divided into a 3x3 grid:
+Row 1 (top):    top-left (superior-izquierda) |
+                top-center (superior-centro)  |
+                top-right (superior-derecha)
+Row 2 (middle): middle-left (medio-izquierda)   |
+                middle-center (medio-centro)    |
+                middle-right (medio-derecha)
+Row 3 (bottom): bottom-left (inferior-izquierda)  |
+                bottom-center (inferior-centro)   |
+                bottom-right (inferior-derecha)
 
 Answer with ONLY one of these exact identifiers:
 no_pointing | fuera_pizarra
@@ -1148,18 +1200,18 @@ ANSWER: <identifier>
 Example: ANSWER: medio-derecha
 \end{lstlisting}
 
-\section{Estructura de la condición \textit{few-shot}}
-\label{sec:prompt_fewshot}
+\section{Estructura de la conversación \textit{few-shot}}
+\label{sec:fewshot_estructura}
 
-En la condición \textit{few-shot}, el \textit{prompt} base de la Sección~\ref{sec:prompt_normal} no se envía directamente con la imagen de consulta, sino que se utiliza en el \textbf{primer turno} de una conversación multiturn junto con la primera imagen de ejemplo ya etiquetada. Los turnos siguientes usan un \textit{prompt} de continuación más breve. La Tabla~\ref{tab:fewshot_turns} detalla la estructura de la conversación.
+Este \textit{prompt} se envía en el \textbf{primer turno} junto con la primera imagen de ejemplo ya etiquetada. Los turnos siguientes usan un mensaje de continuación más breve: \texttt{And this image? End with: ANSWER: <identifier>}. La Tabla~\ref{tab:fewshot_turns} detalla la secuencia completa.
 
 \begin{table}[htbp]
-\caption{\label{tab:fewshot_turns}Estructura de la conversación \textit{few-shot}. Cada fila representa un turno. Los turnos de tipo \textit{assistant} son las respuestas del modelo incluidas como contexto artificial.}
-\begin{tabular}{clp{8cm}}
+\caption{\label{tab:fewshot_turns}Estructura de la conversación \textit{few-shot}. Los turnos \textit{assistant} son respuestas correctas incluidas como contexto artificial.}
+\begin{tabular}{clp{7.5cm}}
 \hline
 \textbf{Turno} & \textbf{Rol} & \textbf{Contenido} \\
 \hline
-1 & \texttt{user}      & Prompt base completo (Sección~\ref{sec:prompt_normal}) + imagen ejemplo 1 \\
+1 & \texttt{user}      & Prompt few-shot (Sección~\ref{sec:prompt_fewshot}) + imagen ejemplo 1 \\
 2 & \texttt{assistant} & Etiqueta correcta del ejemplo 1 (p.~ej.\ \texttt{superior-derecha}) \\
 $\vdots$ & $\vdots$ & $\vdots$ \\
 $2k{-}1$ & \texttt{user}      & \texttt{And this image? End with: ANSWER: <identifier>} + imagen ejemplo $k$ \\
@@ -1169,6 +1221,6 @@ $2k{+}1$ & \texttt{user}      & \texttt{And this image? End with: ANSWER: <ident
 \end{tabular}
 \end{table}
 
-La respuesta del modelo al último turno es la que se analiza y de la que se extrae la región predicha mediante la línea \texttt{ANSWER:~<identifier>}.
+La región predicha se extrae de la línea \texttt{ANSWER:~<identifier>} de la respuesta al último turno.
 
 \end{document}
