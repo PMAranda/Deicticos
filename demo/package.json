@@ -1,0 +1,12 @@
+{
+  "name": "demo-deicticos",
+  "version": "1.0.0",
+  "description": "Demo integrado: gestos deícticos + presentación en vivo para accesibilidad",
+  "main": "servidor.js",
+  "scripts": {
+    "start": "node servidor.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

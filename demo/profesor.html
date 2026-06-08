@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Profesor — Presentación en Vivo</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue:       #4f8ef7;
+      --blue-dark:  #3b7de8;
+      --blue-light: #1a2340;
+      --green:      #3dba6f;
+      --red:        #e05252;
+      --amber:      #f5a623;
+      --violet:     #9b6ef3;
+      --bg:         #13151a;
+      --surface:    #1c1f26;
+      --border:     #272b35;
+      --text:       #dde1ea;
+      --muted:      #6b7a99;
+      --sidebar:    240px;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    header h1 { font-size: 1rem; font-weight: 600; }
+
+    .status { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--muted); }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); transition: background 0.3s; }
+    .dot.on { background: var(--green); }
+
+    .layout { display: flex; flex: 1; overflow: hidden; }
+
+    /* ── Sidebar ── */
+    aside {
+      width: var(--sidebar);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      flex-shrink: 0;
+      overflow-y: auto;
+    }
+    .section { display: flex; flex-direction: column; gap: 7px; }
+    .label { font-size: 0.67rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+    .divider { height: 1px; background: var(--border); }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+      padding: 7px 11px; border-radius: 6px; border: none; cursor: pointer;
+      font-size: 0.81rem; font-weight: 500; transition: background 0.15s, opacity 0.15s; width: 100%;
+    }
+    .btn-primary { background: var(--blue); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--blue-dark); }
+    .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-ghost:hover:not(:disabled) { background: var(--bg); }
+    .btn-amber { background: #2e2210; border: 1px solid #5c3d10; color: #f5a623; }
+    .btn-amber:hover:not(:disabled) { background: #3d2e14; }
+    .btn-violet { background: #201830; border: 1px solid #3d2a5c; color: #c4a0fa; }
+    .btn-violet:hover:not(:disabled) { background: #2a1e40; }
+    .btn-green  { background: #0e2518; border: 1px solid #1a4028; color: #3dba6f; }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .code-box { background: var(--blue-light); border: 1px solid #2a3a5c; border-radius: 8px; padding: 10px; text-align: center; }
+    .code-text { font-family: monospace; font-size: 1.9rem; font-weight: 700; letter-spacing: 0.2em; color: var(--blue); }
+
+    .students-row { display: flex; align-items: center; justify-content: space-between; font-size: 0.81rem; color: var(--muted); }
+    .badge { background: var(--blue); color: #fff; font-weight: 600; font-size: 0.73rem; padding: 2px 8px; border-radius: 999px; }
+
+    .drop-zone {
+      border: 2px dashed var(--border); border-radius: 8px; padding: 16px 10px;
+      text-align: center; cursor: pointer; transition: border-color 0.15s, background 0.15s;
+    }
+    .drop-zone:hover, .drop-zone.over { border-color: var(--blue); background: var(--blue-light); }
+    .drop-zone input { display: none; }
+    .drop-icon { font-size: 1.3rem; }
+    .drop-text { font-size: 0.73rem; color: var(--muted); margin-top: 3px; }
+
+    .progress { height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+    .progress-bar { height: 100%; background: var(--blue); transition: width 0.2s; }
+    .progress-lbl { font-size: 0.71rem; color: var(--muted); }
+    .file-info { font-size: 0.71rem; color: var(--muted); line-height: 1.4; }
+
+    /* Camera */
+    .cam-wrap { position: relative; border-radius: 7px; overflow: hidden; background: #000; width: 100%; aspect-ratio: 4/3; }
+    .cam-wrap video { width: 100%; display: block; }
+    #cam-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+    #cal-canvas  { position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: crosshair; }
+    #gesture-tag {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: rgba(0,0,0,0.62); color: #fff;
+      font-size: 0.72rem; font-weight: 600; text-align: center;
+      padding: 4px 6px; letter-spacing: 0.04em;
+      pointer-events: none;
+    }
+
+    .gesture-row { display: flex; align-items: center; gap: 6px; font-size: 0.74rem; color: var(--muted); }
+    .gdot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); flex-shrink: 0; transition: background 0.2s; }
+    .gdot.pointing  { background: var(--amber); box-shadow: 0 0 6px #f59e0b88; }
+    .gdot.analyzing { background: var(--green); }
+    .gdot.calib     { background: var(--violet); box-shadow: 0 0 6px #7c3aed88; }
+
+    .dbar  { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .dfill { height: 100%; background: var(--amber); transition: width 0.1s linear; }
+
+    .field { padding: 5px 8px; border: 1px solid var(--border); border-radius: 5px; font-size: 0.76rem; width: 100%; outline: none; transition: border-color 0.15s; }
+    .field:focus { border-color: var(--blue); }
+
+    /* Status chip */
+    .chip {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 0.71rem; padding: 4px 8px; border-radius: 6px;
+    }
+    .chip.calib-ok { background: #0e2518; color: #3dba6f; }
+    .chip.calib-no { background: #2a1010; color: #e05252; }
+
+    /* Content */
+    .content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .placeholder { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--muted); }
+    .placeholder-icon { font-size: 3rem; opacity: 0.35; }
+    .slide-area { flex: 1; overflow: auto; display: flex; align-items: center; justify-content: center; padding: 20px; background: #0d0f14; }
+
+    #canvas-wrap { position: relative; display: inline-block; }
+    #canvas  { display: block; box-shadow: 0 6px 24px rgba(0,0,0,.35); }
+    #overlay { position: absolute; top: 0; left: 0; pointer-events: none; }
+
+    .nav { background: var(--surface); border-top: 1px solid var(--border); padding: 10px 20px; display: flex; align-items: center; justify-content: center; gap: 14px; flex-shrink: 0; }
+    .nav-btn { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s, border-color 0.15s; }
+    .nav-btn:hover:not(:disabled) { background: var(--bg); border-color: var(--blue); }
+    .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .counter { font-size: 0.85rem; color: var(--muted); min-width: 90px; text-align: center; }
+
+    /* Loading overlay */
+    #loading-overlay {
+      position: fixed; inset: 0; background: rgba(15,23,42,0.85);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 16px; z-index: 100; color: #f1f5f9;
+    }
+    .spinner-lg { width: 40px; height: 40px; border: 4px solid rgba(255,255,255,.25); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+    #loading-overlay p { font-size: 0.9rem; color: #94a3b8; }
+
+    [hidden] { display: none !important; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<div id="loading-overlay">
+  <div class="spinner-lg"></div>
+  <strong>Cargando OpenCV…</strong>
+  <p id="loading-msg">Procesamiento de imagen (tarda unos segundos)</p>
+</div>
+
+<header>
+  <h1>🎓 Presentación en Vivo — Demo TFM</h1>
+  <div class="status">
+    <span class="dot" id="dot"></span>
+    <span id="status-text">Conectando...</span>
+  </div>
+</header>
+
+<div class="layout">
+  <aside>
+
+    <div class="section" id="sec-create">
+      <p style="font-size:.79rem;color:var(--muted);line-height:1.5">Crea una sala y comparte el código con tus alumnos.</p>
+      <button class="btn btn-primary" id="btn-create" disabled>Crear sala</button>
+    </div>
+
+    <div class="section" id="sec-room" hidden>
+      <span class="label">Código de sala</span>
+      <div class="code-box"><div class="code-text" id="room-code">—</div></div>
+      <button class="btn btn-ghost" id="btn-copy">📋 Copiar código</button>
+      <div class="divider"></div>
+      <div class="students-row">
+        <span>Alumnos conectados</span>
+        <span class="badge" id="student-count">0</span>
+      </div>
+    </div>
+
+    <div class="section" id="sec-upload" hidden>
+      <span class="label">Presentación</span>
+      <label class="drop-zone" id="drop-zone">
+        <input type="file" id="pdf-input" accept="application/pdf">
+        <div class="drop-icon">📄</div>
+        <div class="drop-text">Haz clic o arrastra un PDF</div>
+      </label>
+      <div id="progress-wrap" hidden>
+        <div class="progress-lbl" id="progress-lbl">Subiendo…</div>
+        <div class="progress"><div class="progress-bar" id="progress-bar" style="width:0%"></div></div>
+      </div>
+      <div class="file-info" id="file-info" hidden></div>
+      <label class="btn btn-ghost" id="btn-replace" hidden style="cursor:pointer">
+        <input type="file" id="pdf-replace" accept="application/pdf" style="display:none">
+        🔄 Cambiar PDF
+      </label>
+    </div>
+
+    <div class="section" id="sec-camera" hidden>
+      <div class="divider"></div>
+      <span class="label">Cámara y gestos</span>
+
+      <div class="cam-wrap" id="cam-wrap" hidden>
+        <video id="cam-display" autoplay muted playsinline></video>
+        <canvas id="cam-overlay"></canvas>
+        <canvas id="cal-canvas" hidden></canvas>
+        <div id="gesture-tag">—</div>
+      </div>
+
+      <button class="btn btn-amber" id="btn-camera">📷 Activar cámara</button>
+
+      <div id="calib-section" hidden>
+        <div class="chip calib-no" id="calib-chip" style="margin-bottom:6px">
+          <span>⚠</span><span id="calib-lbl">Pantalla no calibrada</span>
+        </div>
+        <button class="btn btn-violet" id="btn-calib">🎯 Calibrar pantalla</button>
+        <button class="btn btn-ghost"  id="btn-reset-calib" hidden style="font-size:0.75rem">↺ Recalibrar</button>
+        <p id="calib-hint" style="font-size:0.71rem;color:var(--muted);line-height:1.4;display:none">
+          Haz clic en las 4 esquinas de la pantalla visible en la cámara: ↖ ↗ ↘ ↙
+        </p>
+      </div>
+
+      <div class="gesture-row" id="gesture-row" hidden>
+        <span class="gdot" id="gdot"></span>
+        <span id="gesture-lbl">Esperando gesto…</span>
+      </div>
+
+      <div id="dbar-wrap" hidden>
+        <div class="dbar"><div class="dfill" id="dfill" style="width:0%"></div></div>
+        <div style="font-size:0.69rem;color:var(--muted);margin-top:2px">Analizando en breve…</div>
+      </div>
+
+
+      <div class="divider" style="margin-top:2px"></div>
+      <span class="label">Configuración IA</span>
+      <input class="field" id="ollama-url"   type="text" value="http://localhost:11434" placeholder="URL de Ollama">
+      <select class="field" id="ollama-model">
+        <option value="qwen2.5vl:latest">qwen2.5vl</option>
+        <option value="qwen3-vl:latest">qwen3-vl</option>
+        <option value="ministral-3:8b">ministral-3 8b</option>
+      </select>
+      <div class="status" id="ollama-status-row" style="justify-content:flex-start;gap:6px;font-size:0.75rem">
+        <span class="dot" id="ollama-dot"></span>
+        <span id="ollama-status-lbl">Ollama: sin comprobar</span>
+      </div>
+    </div>
+
+  </aside>
+
+  <div class="content">
+    <div class="placeholder" id="placeholder">
+      <div class="placeholder-icon">🖥️</div>
+      <p style="font-size:.88rem">Crea una sala y sube tu presentación para comenzar</p>
+    </div>
+
+    <div class="slide-area" id="slide-area" hidden>
+      <div id="canvas-wrap">
+        <canvas id="canvas"></canvas>
+        <canvas id="overlay"></canvas>
+      </div>
+    </div>
+
+    <div class="nav" id="nav-bar" hidden>
+      <button class="nav-btn" id="btn-prev" disabled title="Anterior (←)">◀</button>
+      <span class="counter" id="counter">— / —</span>
+      <button class="nav-btn" id="btn-next" disabled title="Siguiente (→)">▶</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  var cv;
+  var Module = {
+    onRuntimeInitialized: function () {
+      cv = Module;
+      window.cv      = cv;
+      window.cvReady = true;
+      // PARCHE issue #5282: destruir window.Module para que MediaPipe
+      // no fusione su entorno WASM con el de OpenCV y congele el navegador.
+      window.Module = undefined;
+      delete window.Module;
+      window.dispatchEvent(new Event('opencv-ready'));
+    }
+  };
+</script>
+<script defer src="https://docs.opencv.org/4.8.0/opencv.js"
+        onerror="document.getElementById('loading-msg').textContent='Error cargando OpenCV. Revisa la conexión.';">
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  const $ = id => document.getElementById(id);
+
+  const loadingOverlay = $('loading-overlay');
+  const loadingMsg     = $('loading-msg');
+  const dot            = $('dot');
+  const statusText     = $('status-text');
+  const btnCreate      = $('btn-create');
+  const secCreate      = $('sec-create');
+  const secRoom        = $('sec-room');
+  const secUpload      = $('sec-upload');
+  const secCamera      = $('sec-camera');
+  const roomCodeEl     = $('room-code');
+  const btnCopy        = $('btn-copy');
+  const studentCnt     = $('student-count');
+  const dropZone       = $('drop-zone');
+  const pdfInput       = $('pdf-input');
+  const progressWrap   = $('progress-wrap');
+  const progressLbl    = $('progress-lbl');
+  const progressBar    = $('progress-bar');
+  const fileInfo       = $('file-info');
+  const btnReplace     = $('btn-replace');
+  const pdfReplace     = $('pdf-replace');
+  const placeholder    = $('placeholder');
+  const slideArea      = $('slide-area');
+  const navBar         = $('nav-bar');
+  const canvas         = $('canvas');
+  const overlay        = $('overlay');
+  const btnPrev        = $('btn-prev');
+  const btnNext        = $('btn-next');
+  const counter        = $('counter');
+
+  const camDisplay    = $('cam-display');
+  const camWrap       = $('cam-wrap');
+  const camOverlay    = $('cam-overlay');
+  const calCanvas     = $('cal-canvas');
+  const gestureTag    = $('gesture-tag');
+  const btnCamera     = $('btn-camera');
+  const calibSection  = $('calib-section');
+  const calibChip     = $('calib-chip');
+  const calibLbl      = $('calib-lbl');
+  const btnCalib      = $('btn-calib');
+  const btnResetCalib = $('btn-reset-calib');
+  const calibHint     = $('calib-hint');
+  const gestureRow    = $('gesture-row');
+  const gdot          = $('gdot');
+  const gestureLbl    = $('gesture-lbl');
+  const dbarWrap      = $('dbar-wrap');
+  const dfill         = $('dfill');
+  const ollamaUrl     = $('ollama-url');
+  const ollamaModel   = $('ollama-model');
+  const ollamaDot     = $('ollama-dot');
+  const ollamaLbl     = $('ollama-status-lbl');
+
+  // Escuchar en window (el evento se dispara desde window en el parche #5282)
+  if (window.cvReady) {
+    // OpenCV ya cargó antes de que este script se ejecutara
+    loadingOverlay.hidden = true;
+    connect();
+  } else {
+    window.addEventListener('opencv-ready', () => {
+      loadingOverlay.hidden = true;
+      connect();
+    });
+  }
+
+  // WebSocket
+  let ws = null, roomCode = null, lastOllamaConnected = false;
+
+  function connect() {
+    ws = new WebSocket(`ws://${location.host}`);
+    ws.onopen  = () => { dot.classList.add('on'); statusText.textContent = 'Conectado'; btnCreate.disabled = false; };
+    ws.onclose = () => { dot.classList.remove('on'); statusText.textContent = 'Desconectado — recarga la página'; btnCreate.disabled = true; };
+    ws.onmessage = ({ data }) => {
+      const msg = JSON.parse(data);
+      if (msg.type === 'ROOM_CREATED') onRoomCreated(msg.code);
+      if (msg.type === 'STUDENT_COUNT') {
+        const prev = parseInt(studentCnt.textContent || '0');
+        studentCnt.textContent = msg.count;
+        if (msg.count > prev) ws.send(JSON.stringify({ type: 'OLLAMA_STATUS', connected: lastOllamaConnected }));
+      }
+    };
+  }
+
+  btnCreate.addEventListener('click', () => {
+    btnCreate.disabled    = true;
+    btnCreate.textContent = 'Creando…';
+    ws.send(JSON.stringify({ type: 'CREATE_ROOM' }));
+  });
+
+  function onRoomCreated(code) {
+    roomCode = code;
+    roomCodeEl.textContent = code;
+    secCreate.hidden = true;
+    secRoom.hidden   = false;
+    secUpload.hidden = false;
+  }
+
+  btnCopy.addEventListener('click', () => {
+    navigator.clipboard.writeText(roomCode).then(() => {
+      btnCopy.textContent = '✓ Copiado';
+      setTimeout(() => { btnCopy.textContent = '📋 Copiar código'; }, 2000);
+    });
+  });
+
+  // PDF
+  let pdfDoc = null, currentPage = 1, totalPages = 0, renderTask = null;
+
+  dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault(); dropZone.classList.remove('over');
+    const f = e.dataTransfer.files[0];
+    if (f?.type === 'application/pdf') loadFile(f);
+  });
+  pdfInput.addEventListener('change',   () => { if (pdfInput.files[0])   loadFile(pdfInput.files[0]); });
+  pdfReplace.addEventListener('change', () => { if (pdfReplace.files[0]) loadFile(pdfReplace.files[0]); });
+
+  async function loadFile(file) {
+    const buffer = await file.arrayBuffer();
+    pdfDoc     = await pdfjsLib.getDocument({ data: buffer.slice(0) }).promise;
+    totalPages = pdfDoc.numPages;
+
+    dropZone.style.display  = 'none';
+    progressWrap.hidden     = false;
+    progressLbl.textContent = `Subiendo ${file.name}…`;
+    progressBar.style.width = '0%';
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `/subir-pdf/${roomCode}`);
+    xhr.setRequestHeader('Content-Type', 'application/pdf');
+    xhr.setRequestHeader('X-Total-Slides', String(totalPages));
+    xhr.upload.onprogress = e => {
+      if (e.lengthComputable) {
+        const pct = Math.round(e.loaded / e.total * 100);
+        progressBar.style.width = pct + '%';
+        progressLbl.textContent = `Subiendo… ${pct}%`;
+      }
+    };
+    xhr.onload = () => {
+      if (xhr.status === 200) {
+        progressWrap.hidden = true;
+        fileInfo.textContent = `📄 ${file.name}  ·  ${totalPages} diapositivas`;
+        fileInfo.hidden   = false;
+        btnReplace.hidden = false;
+        activarPresentacion();
+      }
+    };
+    xhr.send(new Blob([buffer], { type: 'application/pdf' }));
+  }
+
+  function activarPresentacion() {
+    currentPage = 1;
+    placeholder.hidden = true;
+    slideArea.hidden   = false;
+    navBar.hidden      = false;
+    secCamera.hidden   = false;
+    actualizarNav();
+    renderPage(currentPage);
+  }
+
+  btnPrev.addEventListener('click', () => irA(currentPage - 1));
+  btnNext.addEventListener('click', () => irA(currentPage + 1));
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowLeft')  irA(currentPage - 1);
+    if (e.key === 'ArrowRight') irA(currentPage + 1);
+  });
+
+  function irA(n) {
+    if (n < 1 || n > totalPages || !pdfDoc) return;
+    currentPage = n;
+    actualizarNav();
+    renderPage(currentPage);
+    ws.send(JSON.stringify({ type: 'SLIDE_CHANGE', slide: currentPage }));
+  }
+
+  function actualizarNav() {
+    btnPrev.disabled = currentPage <= 1;
+    btnNext.disabled = currentPage >= totalPages;
+    counter.textContent = `${currentPage} / ${totalPages}`;
+  }
+
+  async function renderPage(num) {
+    if (!pdfDoc) return;
+    if (renderTask) { renderTask.cancel(); renderTask = null; }
+    const page   = await pdfDoc.getPage(num);
+    const availW = slideArea.clientWidth  - 40;
+    const availH = slideArea.clientHeight - 40;
+    const baseVP = page.getViewport({ scale: 1 });
+    const scale  = Math.min(availW / baseVP.width, availH / baseVP.height);
+    const vp     = page.getViewport({ scale });
+    const dpr    = window.devicePixelRatio || 1;
+
+    canvas.width  = vp.width  * dpr;
+    canvas.height = vp.height * dpr;
+    canvas.style.width  = vp.width  + 'px';
+    canvas.style.height = vp.height + 'px';
+    overlay.width        = canvas.width;
+    overlay.height       = canvas.height;
+    overlay.style.width  = canvas.style.width;
+    overlay.style.height = canvas.style.height;
+
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    renderTask = page.render({ canvasContext: ctx, viewport: vp });
+    try { await renderTask.promise; } catch { /* cancelado */ }
+  }
+
+  window.addEventListener('resize', () => { if (pdfDoc) renderPage(currentPage); });
+
+  // Pointer overlay
+  let pointerVisible = false, pointerX = 0, pointerY = 0, animPhase = 0;
+
+  function animateOverlay() {
+    requestAnimationFrame(animateOverlay);
+    const octx = overlay.getContext('2d');
+    octx.clearRect(0, 0, overlay.width, overlay.height);
+    if (!pointerVisible || !pdfDoc || overlay.width === 0) return;
+
+    animPhase = (animPhase + 0.07) % (Math.PI * 2);
+    const pulse = 1 + 0.18 * Math.sin(animPhase);
+    const alpha = 0.6 + 0.4 * Math.sin(animPhase);
+    const dpr   = window.devicePixelRatio || 1;
+    const r     = 22 * dpr * pulse;
+    const px    = pointerX * overlay.width;
+    const py    = pointerY * overlay.height;
+
+    octx.globalAlpha = alpha * 0.85;
+    octx.strokeStyle = '#f59e0b';
+    octx.lineWidth   = 3 * dpr;
+    octx.beginPath(); octx.arc(px, py, r, 0, Math.PI * 2); octx.stroke();
+
+    octx.globalAlpha = alpha * 0.2;
+    octx.fillStyle   = '#f59e0b';
+    octx.beginPath(); octx.arc(px, py, r * 0.45, 0, Math.PI * 2); octx.fill();
+
+    octx.globalAlpha = alpha;
+    octx.fillStyle   = '#f59e0b';
+    octx.beginPath(); octx.arc(px, py, 3 * dpr, 0, Math.PI * 2); octx.fill();
+
+    octx.globalAlpha = 1;
+  }
+
+  animateOverlay();
+
+  // Pipeline TFM
+  let extractDeicticLandmarks = null;
+  let poseEst       = null;
+  let handsEst      = null;
+  let pointingEst   = null;
+  let dwellConf     = null;
+  let calibMod      = null;
+  let HomographyMod = null;
+  let coordSys      = null;
+  let groundingMod  = null;
+
+  let calibCorners  = null;
+  let cameraActive  = false;
+  let calibrating   = false;
+  let errorSpamCount = 0;
+
+  const RECT_W = 640, RECT_H = 480;
+  const DWELL_FRAMES     = 20;
+  const POINTER_THROTTLE = 40;
+
+  let lastPointerSendMs = 0;
+  let ollamaBusy = false;
+
+  const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+  // Cámara e inicialización segura
+  btnCamera.addEventListener('click', async () => {
+    if (cameraActive) {
+      stopCamera();
+      return;
+    }
+    try {
+      btnCamera.disabled = true;
+
+      if (!poseEst) {
+        btnCamera.textContent = '1/5 Importando scripts...';
+        await delay(100);
+
+        const modPose   = await import('/src/modules/estimacion_corporal/pose.js');
+        const modHands  = await import('/src/modules/estimacion_corporal/hands.js');
+        const modLm     = await import('/src/modules/estimacion_corporal/landmarks.js');
+        const modPoint  = await import('/src/modules/heuristica/pointing.js');
+        const modDwell  = await import('/src/modules/semantica/dwell.js');
+        const modCalib  = await import('/src/modules/homografia/calibration.js');
+        const modCoord  = await import('/src/modules/homografia/coordinates.js');
+        const modHomo   = await import('/src/modules/homografia/homography.js');
+        const modGround = await import('/src/modules/grounding/grounding.js');
+
+        extractDeicticLandmarks = modLm.extractDeicticLandmarks;
+
+        poseEst       = new modPose.PoseEstimator();
+        handsEst      = new modHands.HandEstimator();
+        pointingEst   = new modPoint.PointingEstimator();
+        dwellConf     = new modDwell.DwellConfirmer(DWELL_FRAMES);
+        coordSys      = new modCoord.CoordinateSystem(3, 3);
+        HomographyMod = new modHomo.HomographyModule(cv);
+        groundingMod  = new modGround.BoardGrounding(HomographyMod, coordSys);
+        calibMod      = new modCalib.CalibrationModule(calCanvas);
+
+        groundingMod.setRegionDebounce(5);
+
+        btnCamera.textContent = '2/5 Compilando Pose... (No toques nada)';
+        await delay(500); 
+        await poseEst.init('VIDEO');
+
+        btnCamera.textContent = '3/5 Compilando Manos... (Sigue esperando)';
+        await delay(500); 
+        await handsEst.init('VIDEO');
+      }
+
+      btnCamera.textContent = '4/5 Abriendo cámara...';
+      await delay(100);
+      
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: 640, height: 480 },
+      });
+      camDisplay.srcObject = stream;
+      
+      await new Promise(resolve => {
+         if (camDisplay.videoWidth > 0) resolve();
+         else camDisplay.onloadedmetadata = () => resolve();
+      });
+      await camDisplay.play();
+
+      btnCamera.textContent = '5/5 Validando...';
+      await delay(100);
+
+      camOverlay.width  = camDisplay.videoWidth  || 640;
+      camOverlay.height = camDisplay.videoHeight || 480;
+      calCanvas.width   = camOverlay.width;
+      calCanvas.height  = camOverlay.height;
+
+      cameraActive          = true;
+      errorSpamCount        = 0;
+      camWrap.hidden        = false;
+      gestureRow.hidden     = false;
+      calibSection.hidden   = false;
+      btnCamera.textContent = '⏹ Desactivar cámara';
+      btnCamera.disabled    = false;
+
+      checkOllamaConnection();
+      requestAnimationFrame(gestureLoop);
+
+    } catch (err) {
+      console.error('[demo] Error activando IA/Cámara:', err);
+      btnCamera.disabled    = false;
+      btnCamera.textContent = '📷 Activar cámara';
+      alert(`Error en inicialización:\n${err.message}\nRevisa la consola para más detalles.`);
+    }
+  });
+
+  function stopCamera() {
+    cameraActive = false;
+    camDisplay.srcObject?.getTracks().forEach(t => t.stop());
+    camDisplay.srcObject  = null;
+    camWrap.hidden        = true;
+    gestureRow.hidden     = true;
+    calibSection.hidden   = true;
+    btnCamera.textContent = '📷 Activar cámara';
+    calibrating   = false;
+    calCanvas.hidden = true;
+    stopPointing();
+    camOverlay.getContext('2d').clearRect(0, 0, camOverlay.width, camOverlay.height);
+    lastOllamaConnected = false;
+    ollamaDot.classList.remove('on');
+    ollamaLbl.textContent = 'Ollama: sin conexión';
+    ws?.send(JSON.stringify({ type: 'OLLAMA_STATUS', connected: false }));
+  }
+
+  // Calibración
+  btnCalib.addEventListener('click', () => {
+    if (!cameraActive || !calibMod) return;
+    calibrating       = true;
+    calCanvas.hidden  = false;
+    calibHint.style.display = 'block';
+    btnCalib.hidden   = true;
+    gestureTag.textContent      = '↖ Haz clic en la esquina SUPERIOR IZQUIERDA de la pantalla';
+    gestureTag.style.background = 'rgba(124,58,237,0.85)';
+    gdot.className = 'gdot calib';
+    gestureLbl.textContent = 'Calibrando pantalla…';
+
+    calibMod.start(corners => {
+      calibrating      = false;
+      calCanvas.hidden = true;
+      calibCorners     = corners;
+      calibHint.style.display = 'none';
+
+      HomographyMod.compute(corners, RECT_W, RECT_H);
+
+      calibChip.className = 'chip calib-ok';
+      calibChip.innerHTML = '<span>✓</span><span>Pantalla calibrada</span>';
+      btnResetCalib.hidden = false;
+      gestureTag.textContent      = '✓ Calibrado — apunta a la pantalla';
+      gestureTag.style.background = 'rgba(22,163,74,0.82)';
+      gdot.className = 'gdot';
+      gestureLbl.textContent = 'Esperando gesto…';
+    });
+  });
+
+  btnResetCalib.addEventListener('click', () => {
+    calibCorners = null;
+    calibMod?.reset();
+    HomographyMod?.dispose?.();
+    calibChip.className = 'chip calib-no';
+    calibChip.innerHTML = '<span>⚠</span><span>Pantalla no calibrada</span>';
+    btnCalib.hidden   = false;
+    btnResetCalib.hidden = true;
+    gestureTag.textContent      = '—';
+    gestureTag.style.background = 'rgba(0,0,0,0.62)';
+    stopPointing();
+  });
+
+  const CALIB_HINTS = [
+    '↗ Ahora la esquina SUPERIOR DERECHA',
+    '↘ Ahora la esquina INFERIOR DERECHA',
+    '↙ Por último la esquina INFERIOR IZQUIERDA',
+  ];
+
+  calCanvas.addEventListener('click', () => {
+    if (!calibMod || !calibrating) return;
+    const n = calibMod.corners.length;
+    if (n > 0 && n < 4) {
+      gestureTag.textContent = CALIB_HINTS[n - 1] || '';
+    }
+  });
+
+  // ── LOOP PRINCIPAL SEGURO ───────────────────────────────────────────────────
+  function gestureLoop() {
+    if (!cameraActive) return;
+    try {
+      if (!camDisplay.videoWidth || !camDisplay.videoHeight) {
+        requestAnimationFrame(gestureLoop);
+        return;
+      }
+
+      const now = performance.now();
+
+      let poseResult = null, handsResult = null;
+      if (poseEst?.isReady)  poseResult  = poseEst.detect(camDisplay, now);
+      if (handsEst?.isReady) handsResult = handsEst.detect(camDisplay, now);
+
+      let poseLm = null, handsLm = null;
+      if (typeof extractDeicticLandmarks === 'function') {
+        const extracted = extractDeicticLandmarks(poseResult, handsResult);
+        poseLm  = extracted?.pose;
+        handsLm = extracted?.hands;
+      }
+
+      const result = pointingEst.estimate(poseLm, handsLm);
+
+      if (!calibrating) drawSkeleton(poseLm, handsLm, result);
+
+      if (calibrating) {
+        calCanvas.getContext('2d').clearRect(0, 0, calCanvas.width, calCanvas.height);
+        calibMod?.drawOverlay?.();
+      }
+
+
+      if (calibCorners && HomographyMod?.isReady) {
+        const W = camOverlay.width, H = camOverlay.height;
+        const gResult = groundingMod.project(result, W, H, calibCorners);
+        const { isConfirmed, progress } = dwellConf.update(result.isGesture);
+
+        if (result.isGesture && gResult) {
+          const region = gResult.smoothed
+            ? (coordSys.classifyRegion(gResult.smoothed.x, gResult.smoothed.y).label ?? '—')
+            : (gResult.region ?? '—');
+          const xn = gResult.smoothed?.x ?? gResult.xn;
+          const yn = gResult.smoothed?.y ?? gResult.yn;
+
+          pointerVisible = true;
+          pointerX = xn;
+          pointerY = yn;
+
+          gdot.className = isConfirmed ? 'gdot analyzing' : 'gdot pointing';
+          gestureLbl.textContent = `Señalando: ${region}`;
+          gestureTag.textContent = `☝ Apuntando — ${region}`;
+          gestureTag.style.background = 'rgba(245,158,11,0.82)';
+
+          dfill.style.width = Math.min(100, progress * 100) + '%';
+          dbarWrap.hidden   = isConfirmed;
+
+          const nowMs = Date.now();
+          if (nowMs - lastPointerSendMs >= POINTER_THROTTLE && ws?.readyState === 1) {
+            ws.send(JSON.stringify({ type: 'POINTER_MOVE', x: xn, y: yn, region }));
+            lastPointerSendMs = nowMs;
+          }
+
+          if (isConfirmed && !ollamaBusy) {
+            ollamaBusy = true;
+            dbarWrap.hidden = true;
+            gdot.className  = 'gdot analyzing';
+            gestureLbl.textContent = `Analizando "${region}"…`;
+            const imageB64 = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+            callOllama(imageB64, region).finally(() => { ollamaBusy = false; });
+          }
+        } else {
+          stopPointing();
+          dwellConf.update(false);
+          dbarWrap.hidden   = true;
+          dfill.style.width = '0%';
+        }
+      } else if (!calibCorners) {
+        if (result.isGesture) {
+          gestureTag.textContent      = '⚠ Calibra la pantalla antes de señalar';
+          gestureTag.style.background = 'rgba(220,38,38,0.82)';
+        } else {
+          gestureTag.textContent      = '—';
+          gestureTag.style.background = 'rgba(0,0,0,0.62)';
+        }
+        gdot.className = 'gdot';
+        gestureLbl.textContent = 'Esperando gesto…';
+      }
+
+    } catch (loopErr) {
+      errorSpamCount++;
+      if (errorSpamCount <= 3) {
+        console.error('[CRÍTICO - gestureLoop]', loopErr);
+      }
+      if (errorSpamCount === 3) {
+        stopCamera();
+        alert('Se ha detenido la cámara porque se ha detectado un error continuo en los modelos de IA. Revisa la consola F12.');
+        return; 
+      }
+    }
+    
+    requestAnimationFrame(gestureLoop);
+  }
+
+  function stopPointing() {
+    if (!pointerVisible) return;
+    pointerVisible = false;
+    ws?.send(JSON.stringify({ type: 'POINTER_STOP' }));
+    gdot.className = 'gdot';
+    gestureLbl.textContent = 'Esperando gesto…';
+    gestureTag.textContent      = '—';
+    gestureTag.style.background = 'rgba(0,0,0,0.62)';
+  }
+
+  const POSE_SEGS = [[11,13],[13,15],[12,14],[14,16],[11,12],[11,23],[12,24],[23,24]];
+
+  function drawSkeleton(poseLm, handsLm, result) {
+    const ctx = camOverlay.getContext('2d');
+    const W = camOverlay.width, H = camOverlay.height;
+    ctx.clearRect(0, 0, W, H);
+    if (!poseLm) return;
+
+    const px = (lm, i) => ({ x: lm[i].x * W, y: lm[i].y * H });
+    const activeSide  = result.side;
+    const activeSegs  = activeSide === 'Right'
+      ? new Set(['12,14', '14,16'])
+      : new Set(['11,13', '13,15']);
+
+    for (const [a, b] of POSE_SEGS) {
+      if ((poseLm[a].visibility ?? 1) < 0.25 || (poseLm[b].visibility ?? 1) < 0.25) continue;
+      const key      = `${a},${b}`;
+      const isActive = result.isGesture && activeSegs.has(key);
+      const pa = px(poseLm, a), pb = px(poseLm, b);
+      ctx.strokeStyle = isActive ? '#f59e0b' : 'rgba(100,210,255,0.6)';
+      ctx.lineWidth   = isActive ? 3 : 1.5;
+      ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke();
+    }
+
+    const KEY = new Set([11,12,13,14,15,16,23,24]);
+    for (let i = 0; i < poseLm.length; i++) {
+      if ((poseLm[i].visibility ?? 1) < 0.25) continue;
+      const p = px(poseLm, i);
+      ctx.fillStyle = 'rgba(100,210,255,0.85)';
+      ctx.beginPath(); ctx.arc(p.x, p.y, KEY.has(i) ? 4 : 2.5, 0, Math.PI * 2); ctx.fill();
+    }
+
+    const hand = activeSide === 'Right' ? handsLm?.Right : handsLm?.Left;
+    if (hand) {
+      const tip = { x: hand[8].x * W, y: hand[8].y * H };
+      ctx.fillStyle = '#f59e0b';
+      ctx.beginPath(); ctx.arc(tip.x, tip.y, 7, 0, Math.PI * 2); ctx.fill();
+      if (result.isGesture) {
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth   = 2;
+        ctx.globalAlpha = 0.4;
+        ctx.beginPath(); ctx.arc(tip.x, tip.y, 14, 0, Math.PI * 2); ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+    }
+  }
+
+  async function checkOllamaConnection() {
+    const url = ollamaUrl.value.trim().replace(/\/$/, '');
+    let connected = false;
+    try {
+      const res = await fetch(`${url}/api/tags`, { signal: AbortSignal.timeout(3000) });
+      connected = res.ok;
+    } catch { connected = false; }
+    lastOllamaConnected = connected;
+    ollamaDot.classList.toggle('on', connected);
+    ollamaLbl.textContent = connected ? 'Ollama: conectado' : 'Ollama: sin conexión';
+    ws?.send(JSON.stringify({ type: 'OLLAMA_STATUS', connected }));
+    return connected;
+  }
+
+  let ollamaUrlTimer = null;
+  ollamaUrl.addEventListener('input', () => {
+    clearTimeout(ollamaUrlTimer);
+    ollamaUrlTimer = setTimeout(checkOllamaConnection, 800);
+  });
+
+  async function callOllama(imageB64, region) {
+    const url   = ollamaUrl.value.trim().replace(/\/$/, '');
+    const model = ollamaModel.value;
+
+    const systemPrompt =
+      `Eres un asistente de accesibilidad para alumnos con discapacidad visual en una clase. ` +
+      `Describes el contenido de diapositivas con precisión en español. Sin saludos. ` +
+      `Nunca escribas "no puedo", "no estoy en posición de" ni ninguna disculpa.`;
+
+    const userPrompt =
+      `El profesor está señalando la zona "${region}" de esta diapositiva. ` +
+      `Describe el contenido visible haciendo especial énfasis en lo que aparece en esa zona ` +
+      `(texto, fórmulas, gráficos, imágenes). Menciona brevemente el resto para dar contexto.`;
+
+    ws?.send(JSON.stringify({ type: 'SLIDE_DESCRIPTION', status: 'start', region }));
+
+    try {
+      const res = await fetch(`${url}/api/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model,
+          system:  systemPrompt,
+          prompt:  userPrompt,
+          images:  [imageB64],
+          stream:  true,
+          options: { temperature: 0.2, num_predict: 300, repeat_penalty: 1.5, repeat_last_n: 256 },
+        }),
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const reader  = res.body.getReader();
+      const decoder = new TextDecoder();
+      let rawFull = '', buffer = '', sentLen = 0, doneSent = false;
+
+      function stripThink(t) {
+        return t.replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').replace(/^\s+/, '');
+      }
+      function trimRepetition(text) {
+        const segs = text.split(/(?<=[.!?\n])\s*/);
+        const seen = new Set(), out = [];
+        for (const seg of segs) {
+          const key = seg.trim().toLowerCase();
+          if (key.length > 20 && seen.has(key)) break;
+          out.push(seg);
+          if (key.length > 20) seen.add(key);
+        }
+        return out.join('').trim();
+      }
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const json = JSON.parse(line);
+            if (json.response) {
+              rawFull += json.response;
+              const filtered = stripThink(rawFull);
+              if (filtered.length > sentLen) {
+                ws?.send(JSON.stringify({ type: 'SLIDE_DESCRIPTION', status: 'token', text: filtered.slice(sentLen) }));
+                sentLen = filtered.length;
+              }
+            }
+            if (json.done && !doneSent) {
+              doneSent = true;
+              ws?.send(JSON.stringify({ type: 'SLIDE_DESCRIPTION', status: 'done', text: trimRepetition(stripThink(rawFull)) }));
+            }
+          } catch { /* JSON parcial */ }
+        }
+        if (doneSent) break;
+      }
+
+    } catch (err) {
+      ws?.send(JSON.stringify({ type: 'SLIDE_DESCRIPTION', status: 'error', text: `Error: ${err.message}` }));
+    }
+  }
+
+</script>
+</body>
+</html>

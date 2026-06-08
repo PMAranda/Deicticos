@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alumno — Presentación en Directo</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue:       #4f8ef7;
+      --blue-dark:  #3b7de8;
+      --blue-light: #1a2340;
+      --green:      #3dba6f;
+      --red:        #e05252;
+      --amber:      #f5a623;
+      --bg:         #13151a;
+      --surface:    #1c1f26;
+      --border:     #272b35;
+      --text:       #dde1ea;
+      --muted:      #6b7a99;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    header h1 { font-size: 1rem; font-weight: 600; }
+
+    .status { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--muted); }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); transition: background 0.3s; }
+    .dot.on { background: var(--green); }
+
+    /* ── Join screen ── */
+    #join-screen {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .join-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 36px 32px;
+      max-width: 400px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      box-shadow: 0 4px 20px rgba(0,0,0,.06);
+    }
+    .join-card h2 { font-size: 1.15rem; font-weight: 700; }
+    .join-card p  { font-size: 0.87rem; color: var(--muted); line-height: 1.5; }
+
+    .input-row { display: flex; gap: 8px; }
+
+    #code-input {
+      flex: 1; padding: 10px 14px;
+      border: 1px solid var(--border); border-radius: 7px;
+      font-size: 1.1rem; font-family: monospace; font-weight: 600;
+      letter-spacing: 0.15em; text-transform: uppercase; outline: none;
+      transition: border-color 0.15s;
+    }
+    #code-input:focus { border-color: var(--blue); }
+    #code-input::placeholder { font-weight: 400; letter-spacing: 0.05em; color: #3d4558; }
+
+    .btn-join {
+      padding: 10px 18px; background: var(--blue); color: #fff;
+      border: none; border-radius: 7px; font-size: 0.88rem; font-weight: 600;
+      cursor: pointer; transition: background 0.15s; white-space: nowrap;
+    }
+    .btn-join:hover:not(:disabled) { background: var(--blue-dark); }
+    .btn-join:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .error-msg {
+      font-size: 0.82rem; color: var(--red);
+      background: #2a1010; border: 1px solid #4a1f1f;
+      border-radius: 6px; padding: 8px 12px;
+    }
+
+    /* ── Slide view ── */
+    #slide-view { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    .slide-area {
+      flex: 1; overflow: auto; display: flex; align-items: center; justify-content: center;
+      background: #0d0f14; padding: 20px;
+    }
+
+    /* Canvas wrapper */
+    #canvas-wrap { position: relative; display: inline-block; }
+    #canvas  { display: block; box-shadow: 0 6px 24px rgba(0,0,0,.35); }
+    #overlay { position: absolute; top: 0; left: 0; pointer-events: none; }
+
+    /* Loading */
+    .loading-msg {
+      color: #e2e8f0; font-size: 0.9rem;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .spinner {
+      width: 20px; height: 20px;
+      border: 3px solid rgba(255,255,255,.3);
+      border-top-color: #fff; border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Panel de descripción IA ── */
+    #desc-panel {
+      background: rgba(18, 20, 28, 0.97);
+      color: #dde1ea;
+      border-top: 2px solid var(--amber);
+      padding: 12px 16px 14px;
+      flex-shrink: 0;
+      max-height: 130px;
+      overflow-y: auto;
+    }
+
+    .desc-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 7px;
+    }
+
+    .desc-zone {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--amber);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .desc-zone-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--amber);
+      animation: pulseAmber 1.2s ease-in-out infinite;
+    }
+    @keyframes pulseAmber { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+
+    .desc-close {
+      background: none; border: none;
+      color: #64748b; cursor: pointer; font-size: 0.82rem;
+      padding: 2px 5px; border-radius: 3px; transition: color 0.15s;
+    }
+    .desc-close:hover { color: #f1f5f9; }
+
+    #desc-text {
+      font-size: 0.85rem;
+      line-height: 1.6;
+      color: #e2e8f0;
+      white-space: pre-wrap;
+    }
+
+    /* Cursor de escritura mientras llega el stream */
+    #desc-text.streaming::after {
+      content: '▋';
+      animation: blink 0.7s step-start infinite;
+      color: var(--amber);
+      margin-left: 2px;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* ── Panel de pizarra ── */
+    #board-panel {
+      background: rgba(18, 20, 28, 0.97);
+      color: #dde1ea;
+      border-top: 2px solid #7c3aed;
+      padding: 12px 16px 14px;
+      flex-shrink: 0;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+    .board-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 7px;
+    }
+    .board-zone {
+      font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.07em; color: #a78bfa;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .board-zone-dot {
+      width: 6px; height: 6px; border-radius: 50%; background: #7c3aed;
+      animation: pulseViolet 1.2s ease-in-out infinite;
+    }
+    @keyframes pulseViolet { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+    #board-text {
+      font-size: 0.85rem; line-height: 1.6; color: #e2e8f0;
+      white-space: pre-wrap; font-family: monospace;
+    }
+    #board-text.streaming::after {
+      content: '▋'; animation: blink 0.7s step-start infinite;
+      color: #a78bfa; margin-left: 2px;
+    }
+    .board-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 0.72rem; font-weight: 600; color: #5b21b6;
+      background: #ede9fe; border: 1px solid #ddd6fe;
+      border-radius: 999px; padding: 2px 9px;
+    }
+
+    /* ── Footer ── */
+    .slide-footer {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      flex-shrink: 0;
+    }
+    .counter { font-size: 0.85rem; color: var(--muted); }
+
+    .live-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 0.72rem; font-weight: 600; color: #3dba6f;
+      background: #0e2518; border: 1px solid #1a4028;
+      border-radius: 999px; padding: 2px 9px;
+    }
+    .ia-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 0.72rem; font-weight: 600; color: #f5a623;
+      background: #2e2210; border: 1px solid #5c3d10;
+      border-radius: 999px; padding: 2px 9px;
+    }
+
+    #btn-transcript {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 0.72rem; font-weight: 600; color: var(--blue);
+      background: var(--blue-light); border: 1px solid #bfdbfe;
+      border-radius: 999px; padding: 3px 11px;
+      cursor: pointer; transition: background 0.15s;
+    }
+    #btn-transcript:hover:not(:disabled) { background: #dbeafe; }
+    #btn-transcript:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    #btn-releer {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 0.72rem; font-weight: 600; color: #5b21b6;
+      background: #ede9fe; border: 1px solid #ddd6fe;
+      border-radius: 999px; padding: 3px 11px;
+      cursor: pointer; transition: background 0.15s;
+    }
+    #btn-releer:hover:not(:disabled) { background: #ddd6fe; }
+    #btn-releer:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .live-dot {
+      width: 6px; height: 6px; border-radius: 50%; background: var(--green);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 70px; left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #1e293b; color: #fff; font-size: 0.8rem;
+      padding: 7px 16px; border-radius: 999px;
+      opacity: 0; transition: opacity 0.25s, transform 0.25s; pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>📺 Presentación en Directo</h1>
+  <div class="status">
+    <span class="dot" id="dot"></span>
+    <span id="status-text">Conectando…</span>
+  </div>
+</header>
+
+<!-- Pantalla de unirse -->
+<div id="join-screen">
+  <div class="join-card">
+    <h2>Unirse a una presentación</h2>
+    <p>Introduce el código de sala que te ha facilitado el profesor.</p>
+    <div class="input-row">
+      <input id="code-input" type="text" maxlength="5" placeholder="XXXXX" autocomplete="off" spellcheck="false">
+      <button id="btn-join" class="btn-join" disabled>Unirse</button>
+    </div>
+    <div id="error-msg" class="error-msg" hidden></div>
+  </div>
+</div>
+
+<!-- Vista de diapositiva -->
+<div id="slide-view" hidden>
+
+  <div class="slide-area">
+    <div id="loading-msg" class="loading-msg">
+      <div class="spinner"></div>
+      <span>Descargando presentación…</span>
+    </div>
+    <div id="canvas-wrap" hidden>
+      <canvas id="canvas"></canvas>
+      <canvas id="overlay"></canvas>
+    </div>
+  </div>
+
+  <!-- Panel de pizarra (aparece cuando el profesor escribe) -->
+  <div id="board-panel" hidden>
+    <div class="board-header">
+      <span class="board-zone">
+        <span class="board-zone-dot"></span>
+        ✍ Contenido de pizarra
+      </span>
+      <button class="desc-close" id="board-close">✕</button>
+    </div>
+    <div id="board-text"></div>
+  </div>
+
+  <!-- Panel de descripción IA (aparece cuando el profesor apunta) -->
+  <div id="desc-panel" hidden>
+    <div class="desc-header">
+      <span class="desc-zone">
+        <span class="desc-zone-dot"></span>
+        <span id="desc-zone-label">Descripción IA</span>
+      </span>
+      <button class="desc-close" id="desc-close">✕</button>
+    </div>
+    <div id="desc-text"></div>
+  </div>
+
+  <div class="slide-footer">
+    <span class="counter" id="counter">— / —</span>
+    <span class="live-badge"><span class="live-dot"></span>EN DIRECTO</span>
+    <span class="ia-badge" id="ia-badge" hidden>🤖 IA activa</span>
+    <span class="board-badge" id="board-badge" hidden>✍ Pizarra</span>
+    <button id="btn-transcript" disabled title="Descargar transcripción de la clase">📄 Transcripción</button>
+    <button id="btn-releer" disabled title="Releer la última descripción de esta diapositiva (R)">🔁 Releer</button>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  // ── Estado ────────────────────────────────────────────────────────────────
+  let ws          = null;
+  let pdfDoc      = null;
+  let currentPage = 1;
+  let totalPages  = 0;
+  let renderTask  = null;
+  let roomCode    = null;
+  let toastTimer  = null;
+
+  // Transcripción acumulada: [{ slide, region, text, time }]
+  const transcript      = [];
+  let   pendingRegion   = '';
+
+  // Última descripción recibida por diapositiva (para el botón Releer)
+  const lastDescBySlide = {};
+
+  // ── Refs ──────────────────────────────────────────────────────────────────
+  const $         = id => document.getElementById(id);
+  const dot        = $('dot');
+  const statusText = $('status-text');
+  const joinScreen = $('join-screen');
+  const slideView  = $('slide-view');
+  const codeInput  = $('code-input');
+  const btnJoin    = $('btn-join');
+  const errorMsg   = $('error-msg');
+  const loadingMsg = $('loading-msg');
+  const canvasWrap = $('canvas-wrap');
+  const canvas     = $('canvas');
+  const overlay    = $('overlay');
+  const counter    = $('counter');
+  const toast      = $('toast');
+  const descPanel  = $('desc-panel');
+  const descZone   = $('desc-zone-label');
+  const descText   = $('desc-text');
+  const descClose      = $('desc-close');
+  const btnTranscript  = $('btn-transcript');
+  const btnReleer      = $('btn-releer');
+  const boardPanel = $('board-panel');
+  const boardText  = $('board-text');
+  const boardClose = $('board-close');
+  const boardBadge = $('board-badge');
+
+  descClose.addEventListener('click',  () => { descPanel.hidden = true; });
+  boardClose.addEventListener('click', () => { boardPanel.hidden = true; });
+
+  // ── WebSocket ─────────────────────────────────────────────────────────────
+  function connect() {
+    ws = new WebSocket(`ws://${location.host}`);
+
+    ws.onopen  = () => { dot.classList.add('on'); statusText.textContent = 'Conectado'; btnJoin.disabled = false; };
+    ws.onclose = () => { dot.classList.remove('on'); statusText.textContent = 'Desconectado'; btnJoin.disabled = true; };
+
+    ws.onmessage = ({ data }) => {
+      const msg = JSON.parse(data);
+      switch (msg.type) {
+        case 'JOINED':             onJoined(msg);            break;
+        case 'PDF_UPDATED':        onPdfUpdated(msg);        break;
+        case 'SLIDE_CHANGE':       onSlideChange(msg.slide); break;
+        case 'OLLAMA_STATUS':      setOllamaReady(msg.connected); break;
+        case 'POINTER_MOVE':       onPointerMove(msg);       break;
+        case 'POINTER_STOP':       onPointerStop();          break;
+        case 'SLIDE_DESCRIPTION':   onSlideDescription(msg);   break;
+        case 'WHITEBOARD_CAPTURE':  onWhiteboardCapture(msg);  break;
+        case 'TEACHER_DISCONNECTED':
+          statusText.textContent = 'Sesión finalizada';
+          dot.classList.remove('on');
+          mostrarToast('El profesor ha finalizado la sesión');
+          break;
+        case 'ERROR':
+          mostrarError(msg.message);
+          btnJoin.disabled    = false;
+          btnJoin.textContent = 'Unirse';
+          break;
+      }
+    };
+  }
+
+  // ── Join ──────────────────────────────────────────────────────────────────
+  codeInput.addEventListener('input',  () => { codeInput.value = codeInput.value.toUpperCase(); errorMsg.hidden = true; });
+  codeInput.addEventListener('keydown', e => { if (e.key === 'Enter') btnJoin.click(); });
+
+  btnJoin.addEventListener('click', () => {
+    const code = codeInput.value.trim();
+    if (code.length < 3) { mostrarError('Introduce un código válido.'); return; }
+    btnJoin.disabled    = true;
+    btnJoin.textContent = 'Conectando…';
+    errorMsg.hidden     = true;
+    ws.send(JSON.stringify({ type: 'JOIN_ROOM', code }));
+  });
+
+  function mostrarError(texto) { errorMsg.textContent = texto; errorMsg.hidden = false; }
+
+  // ── Al unirse ─────────────────────────────────────────────────────────────
+  async function onJoined(msg) {
+    roomCode    = msg.code;
+    currentPage = msg.currentSlide;
+    totalPages  = msg.totalSlides;
+
+    joinScreen.hidden = true;
+    slideView.hidden  = false;
+    statusText.textContent = `Sala ${roomCode}`;
+
+    await cargarPdf();
+  }
+
+  async function onPdfUpdated(msg) {
+    currentPage = 1;
+    totalPages  = msg.totalSlides;
+    descPanel.hidden  = true;
+    boardPanel.hidden = true;
+    clearTimeout(descHideTimer);
+    clearTimeout(boardHideTimer);
+    mostrarToast('El profesor ha cambiado la presentación');
+    await cargarPdf();
+  }
+
+  async function cargarPdf() {
+    loadingMsg.hidden  = false;
+    canvasWrap.hidden  = true;
+    loadingMsg.innerHTML = '<div class="spinner"></div><span>Descargando presentación…</span>';
+
+    try {
+      const response = await fetch(`/pdf/${roomCode}`);
+      if (!response.ok) throw new Error('No se pudo descargar el PDF');
+      const buffer = await response.arrayBuffer();
+      pdfDoc = await pdfjsLib.getDocument({ data: buffer }).promise;
+
+      loadingMsg.hidden = true;
+      canvasWrap.hidden = false;
+      actualizarContador();
+      await renderPage(currentPage);
+    } catch (err) {
+      loadingMsg.innerHTML = `<span style="color:#fca5a5">⚠ ${err.message}</span>`;
+    }
+  }
+
+  // ── Cambio de diapositiva ─────────────────────────────────────────────────
+  async function onSlideChange(page) {
+    if (!pdfDoc) return;
+    currentPage = page;
+    actualizarContador();
+    actualizarReleer();
+    await renderPage(currentPage);
+    mostrarToast(`Diapositiva ${page} de ${totalPages}`);
+  }
+
+  // ── Renderizar ────────────────────────────────────────────────────────────
+  async function renderPage(num) {
+    if (!pdfDoc) return;
+    if (renderTask) { renderTask.cancel(); renderTask = null; }
+
+    const page      = await pdfDoc.getPage(num);
+    const container = document.querySelector('.slide-area');
+    const availW    = container.clientWidth  - 40;
+    const availH    = container.clientHeight - 40;
+    const baseVP    = page.getViewport({ scale: 1 });
+    const scale     = Math.min(availW / baseVP.width, availH / baseVP.height);
+    const viewport  = page.getViewport({ scale });
+    const dpr       = window.devicePixelRatio || 1;
+
+    canvas.width  = viewport.width  * dpr;
+    canvas.height = viewport.height * dpr;
+    canvas.style.width  = viewport.width  + 'px';
+    canvas.style.height = viewport.height + 'px';
+
+    // Sincronizar overlay
+    overlay.width        = canvas.width;
+    overlay.height       = canvas.height;
+    overlay.style.width  = canvas.style.width;
+    overlay.style.height = canvas.style.height;
+
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    renderTask = page.render({ canvasContext: ctx, viewport });
+    try { await renderTask.promise; } catch { /* cancelado */ }
+  }
+
+  function actualizarContador() { counter.textContent = `${currentPage} / ${totalPages}`; }
+
+  window.addEventListener('resize', () => { if (pdfDoc) renderPage(currentPage); });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // PUNTERO DEL PROFESOR + DESCRIPCIÓN IA
+  // ══════════════════════════════════════════════════════════════════════════
+
+  // ── Estado Ollama ─────────────────────────────────────────────────────────
+  let ollamaReady = false;
+  const iaBadge = $('ia-badge');
+
+  function setOllamaReady(connected) {
+    ollamaReady      = connected;
+    iaBadge.hidden   = !connected;
+    if (!connected) {
+      descPanel.hidden = true;   // ocultar panel si Ollama se desconecta
+      clearTimeout(descHideTimer);
+    }
+  }
+
+  let pointerVisible = false;
+  // targetX/Y: última posición recibida por WS
+  // curX/Y:    posición actualmente renderizada (se interpola hacia target cada frame)
+  let targetX = 0, targetY = 0;
+  let curX    = 0, curY    = 0;
+  let animPhase = 0;
+
+  const LERP = 0.18; // fracción del camino que se recorre por frame (~60 fps)
+
+  // Bucle de animación del puntero (siempre corriendo)
+  function animateOverlay() {
+    requestAnimationFrame(animateOverlay);
+    const octx = overlay.getContext('2d');
+    octx.clearRect(0, 0, overlay.width, overlay.height);
+    if (!pointerVisible || !pdfDoc || overlay.width === 0) return;
+
+    // Interpolación suave hacia la posición objetivo
+    curX += (targetX - curX) * LERP;
+    curY += (targetY - curY) * LERP;
+
+    animPhase = (animPhase + 0.07) % (Math.PI * 2);
+    const pulse = 1 + 0.18 * Math.sin(animPhase);
+    const alpha = 0.6  + 0.4  * Math.sin(animPhase);
+    const dpr   = window.devicePixelRatio || 1;
+    const r     = 22 * dpr * pulse;
+    const px    = curX * overlay.width;
+    const py    = curY * overlay.height;
+
+    // Círculo exterior pulsante
+    octx.globalAlpha = alpha * 0.85;
+    octx.strokeStyle = '#f59e0b';
+    octx.lineWidth   = 3 * dpr;
+    octx.beginPath();
+    octx.arc(px, py, r, 0, Math.PI * 2);
+    octx.stroke();
+
+    // Relleno interior semitransparente
+    octx.globalAlpha = alpha * 0.2;
+    octx.fillStyle   = '#f59e0b';
+    octx.beginPath();
+    octx.arc(px, py, r * 0.45, 0, Math.PI * 2);
+    octx.fill();
+
+    // Punto central sólido
+    octx.globalAlpha = alpha;
+    octx.fillStyle   = '#f59e0b';
+    octx.beginPath();
+    octx.arc(px, py, 3 * dpr, 0, Math.PI * 2);
+    octx.fill();
+
+    octx.globalAlpha = 1;
+  }
+
+  animateOverlay();
+
+  function onPointerMove(msg) {
+    targetX        = msg.x;
+    targetY        = msg.y;
+    if (!pointerVisible) {
+      // Primer punto: colocar el cursor directamente para no salir desde (0,0)
+      curX = targetX;
+      curY = targetY;
+    }
+    pointerVisible = true;
+  }
+
+  function onPointerStop() {
+    pointerVisible = false;
+  }
+
+  // ── Panel de descripción IA ───────────────────────────────────────────────
+  let descHideTimer = null;
+
+  function onSlideDescription(msg) {
+    if (!ollamaReady) return;
+    if (msg.status === 'start') {
+      pendingRegion           = msg.region;
+      descZone.textContent    = `Señalando: ${msg.region}`;
+      descText.textContent    = '';
+      descText.className      = 'streaming';
+      descPanel.hidden        = false;
+      clearTimeout(descHideTimer);
+    } else if (msg.status === 'token') {
+      descText.textContent   += msg.text;
+      descPanel.scrollTop     = descPanel.scrollHeight;
+    } else if (msg.status === 'done') {
+      descText.textContent    = msg.text;
+      descText.className      = '';
+      clearTimeout(descHideTimer);
+      descHideTimer = setTimeout(() => { descPanel.hidden = true; }, 18000);
+      // Guardar en transcripción y en historial por diapositiva
+      if (msg.text.trim()) {
+        transcript.push({
+          slide:  currentPage,
+          region: pendingRegion,
+          text:   msg.text.trim(),
+          time:   new Date(),
+        });
+        btnTranscript.disabled = false;
+        lastDescBySlide[currentPage] = msg.text.trim();
+        actualizarReleer();
+      }
+    } else if (msg.status === 'error') {
+      descText.textContent    = `⚠ ${msg.text}`;
+      descText.className      = '';
+    }
+  }
+
+  // ── Panel de pizarra ─────────────────────────────────────────────────────
+  let boardHideTimer = null;
+
+  function onWhiteboardCapture(msg) {
+    if (msg.status === 'start') {
+      boardText.textContent = '';
+      boardText.className   = 'streaming';
+      boardPanel.hidden     = false;
+      boardBadge.hidden     = false;
+      clearTimeout(boardHideTimer);
+    } else if (msg.status === 'token') {
+      boardText.textContent += msg.text;
+      boardPanel.scrollTop   = boardPanel.scrollHeight;
+    } else if (msg.status === 'done') {
+      boardText.textContent = msg.text;
+      boardText.className   = '';
+      boardBadge.hidden     = true;
+      clearTimeout(boardHideTimer);
+      boardHideTimer = setTimeout(() => { boardPanel.hidden = true; }, 25000);
+      if (msg.text.trim()) {
+        lastDescBySlide[currentPage] = msg.text.trim();
+        actualizarReleer();
+      }
+    } else if (msg.status === 'error') {
+      boardText.textContent = `⚠ ${msg.text}`;
+      boardText.className   = '';
+      boardBadge.hidden     = true;
+    }
+  }
+
+  // ── Descarga de transcripción ─────────────────────────────────────────────
+  btnTranscript.addEventListener('click', () => {
+    if (!transcript.length) return;
+
+    // Agrupar por número de diapositiva
+    const bySlide = {};
+    for (const entry of transcript) {
+      if (!bySlide[entry.slide]) bySlide[entry.slide] = [];
+      bySlide[entry.slide].push(entry);
+    }
+
+    const fecha = new Date().toLocaleDateString('es-ES', { day:'2-digit', month:'2-digit', year:'numeric' });
+    const hora  = new Date().toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' });
+    const linea = '─'.repeat(50);
+
+    let texto = `TRANSCRIPCIÓN DE CLASE\n`;
+    texto    += `Sala: ${roomCode || '—'}  ·  ${fecha}  ${hora}\n`;
+    texto    += `${linea}\n\n`;
+
+    for (const slideNum of Object.keys(bySlide).sort((a, b) => a - b)) {
+      texto += `DIAPOSITIVA ${slideNum}\n${linea}\n\n`;
+      for (const entry of bySlide[slideNum]) {
+        const t = entry.time.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' });
+        texto += `[${t}] Zona: ${entry.region}\n${entry.text}\n\n`;
+      }
+    }
+
+    const blob = new Blob([texto], { type: 'text/plain;charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `transcripcion_clase_${fecha.replace(/\//g, '-')}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // ── Releer ────────────────────────────────────────────────────────────────
+  function actualizarReleer() {
+    btnReleer.disabled = !lastDescBySlide[currentPage];
+  }
+
+  function speakText(text) {
+    if (!text || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utt  = new SpeechSynthesisUtterance(text);
+    utt.lang   = 'es-ES';
+    utt.rate   = 1.0;
+    window.speechSynthesis.speak(utt);
+  }
+
+  btnReleer.addEventListener('click', () => {
+    const text = lastDescBySlide[currentPage];
+    if (text) speakText(text);
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'r' || e.key === 'R') {
+      if (document.activeElement.tagName === 'INPUT') return;
+      const text = lastDescBySlide[currentPage];
+      if (text) speakText(text);
+    }
+  });
+
+  // ── Toast ─────────────────────────────────────────────────────────────────
+  function mostrarToast(texto) {
+    clearTimeout(toastTimer);
+    toast.textContent = texto;
+    toast.classList.add('show');
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 2500);
+  }
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+  connect();
+</script>
+</body>
+</html>
