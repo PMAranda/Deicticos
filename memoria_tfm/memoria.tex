@@ -353,7 +353,9 @@ Sin embargo, dotar a los sistemas informáticos de la capacidad de comprender es
 
 La consolidación de modelos de estimación de pose corporal y detección de manos capaces de ejecutarse en tiempo real sobre hardware convencional, como MediaPipe \citep{lugaresi2019mediapipe, bazarevsky2020blazepose, zhang2020mediapipe}, junto con la disponibilidad de bibliotecas de visión por computador en el navegador web como OpenCV.js \citep{bradski2000opencv}, abre la posibilidad de construir sistemas de reconocimiento de gestos deícticos accesibles, sin instalación, ejecutados íntegramente en el lado del cliente y compatibles con cualquier dispositivo dotado de cámara estándar.
 
-Este trabajo nace de la motivación de explorar hasta qué punto es posible reconocer de forma robusta el gesto de pointing —determinar si el usuario señala, con qué brazo y hacia dónde— y proyectar dicho gesto sobre una superficie física calibrada para obtener una referencia espacial interpretable, todo ello en tiempo real y sin necesidad de hardware adicional más allá de una webcam convencional.
+Este trabajo se enmarca dentro de un proyecto de mayor alcance cuyo objetivo es hacer las aulas más inclusivas para estudiantes con discapacidad visual. El proyecto combina este módulo de reconocimiento gestual con el desarrollo paralelo de un compañero, centrado en la captura y transcripción del audio de clase en tiempo real. La integración de ambos módulos permitirá generar descripciones compuestas que combinen el contenido verbal de la explicación del docente con la referencia espacial del gesto —«en la zona superior derecha de la pizarra»— para transmitirlas de forma accesible a quienes no pueden percibir visualmente lo que ocurre en el aula. Este trabajo aporta la capa de \textit{grounding} espacial: determinar con qué brazo señala el docente, en qué dirección y sobre qué región de la pizarra, para que esa información pueda integrarse en la descripción global del sistema combinado.
+
+La motivación específica de este módulo es, por tanto, explorar hasta qué punto es posible reconocer de forma robusta el gesto de pointing —determinar si el usuario señala, con qué brazo y hacia dónde— y proyectar dicho gesto sobre una superficie física calibrada para obtener una referencia espacial interpretable, todo ello en tiempo real y sin necesidad de hardware adicional más allá de una webcam convencional.
 
 \section{Objetivos}
 
@@ -549,6 +551,8 @@ El acceso a la cámara del dispositivo se realiza mediante la API \texttt{MediaD
 
 La calibración establece la correspondencia entre el plano de la superficie física y el plano imagen. El usuario selecciona manualmente los cuatro vértices de la pizarra en el orden fijo ↖→↗→↘→↙, que el módulo de calibración muestra mediante un \textit{overlay} visual interactivo. La restricción de orden es necesaria para que la transformación homográfica mapee correctamente cada vértice al destino rectangular esperado: sin este orden canónico, la homografía podría generar una rectificación especularmente invertida o con perspectiva incorrecta.
 
+Se exploró inicialmente la posibilidad de automatizar la detección de la pizarra mediante un detector de objetos entrenado con anotaciones propias sobre YOLOv8. Este enfoque presentó dos limitaciones fundamentales. En primer lugar, los \textit{bounding boxes} rectangulares alineados con los ejes que produce YOLO no capturan la perspectiva real de la pizarra desde un punto de vista oblicuo: las esquinas del \textit{bounding box} no coinciden en general con los vértices reales de la superficie, lo que introduce errores sistemáticos en la homografía resultante. En segundo lugar, en un aula coexisten superficies heterogéneas —pizarras de tiza, de rotulador borrable y superficies de proyección— con distintas proporciones, texturas y condiciones de iluminación; generalizar el detector a todas ellas requeriría un conjunto de datos de gran escala difícil de obtener. La selección manual de los cuatro vértices, si bien introduce un paso de inicialización, garantiza precisión subpíxel en las correspondencias y es aplicable de inmediato a cualquier tipo de superficie plana sin necesidad de reentrenamiento.
+
 La representación interna de los vértices calibrados es un array de cuatro pares de coordenadas en píxeles de imagen. Estos vértices se emplean en dos contextos distintos: el cálculo de la homografía hacia el plano rectificado y la comprobación de intersección rayo-polígono en la fase de grounding.
 
 \subsection{Transformación homográfica}
@@ -637,6 +641,23 @@ El estudio reveló tres hallazgos con implicaciones directas en el diseño de la
 El módulo \texttt{StabilityTracker} cuantifica el jitter de cada \textit{landmark} mediante una ventana deslizante de 30 \textit{frames}: calcula la varianza de posición en ese intervalo y clasifica el \textit{landmark} en tres niveles: estable (jitter $< 0{,}004$), moderado ($0{,}004$--$0{,}012$) e inestable ($> 0{,}012$). Estos umbrales determinan en tiempo de ejecución si la estimación de Hands es suficientemente coherente con la de Pose para activar los pesos \textsc{hands} de la fusión vectorial, que elevan el peso del vector distal $\vec{v}_{WI}$ al 60\,\%.
 
 \section{Fase 3: Heurística de detección de pointing}
+
+\subsection{Proceso de desarrollo iterativo}
+\label{sec:fase3_iterativo}
+
+La heurística de \textit{pointing} fue el componente con el ciclo de diseño más largo del proyecto, evolucionando a través de seis versiones principales antes de alcanzar su arquitectura definitiva. Se describen aquí las etapas clave para motivar las decisiones de diseño que se explican en las subsecciones siguientes.
+
+\textbf{Etapa 1 — Scoring de visibilidad.} El primer prototipo seleccionaba el brazo más visible según los valores de \textit{visibility} de MediaPipe y calculaba el vector shoulder$\rightarrow$wrist como dirección de \textit{pointing}. Sin ningún criterio de intención, cualquier postura con el brazo elevado —rascarse la cabeza, ajustarse la ropa— activaba el gesto, generando falsos positivos continuos.
+
+\textbf{Etapa 2 — Umbral binario de extensión del codo.} Se incorporó \texttt{computeExtensionAngle()}: si el ángulo de flexión del codo superaba un umbral fijo ($\approx 30°$), el gesto se rechazaba. Esto eliminó la mayoría de los falsos positivos, pero resultó excesivamente estricto: señalar elementos cercanos, donde el codo se dobla parcialmente, producía falsos negativos sistemáticos.
+
+\textbf{Etapa 3 — Factor gradual de extensión y restricciones biomecánicas.} El umbral binario se sustituyó por \texttt{extScore} $= 1 - \min(1, \alpha/150°)$, que penaliza gradualmente en lugar de rechazar. Para compensar que el relajar el criterio de extensión reintroducía falsos positivos del brazo colgante, se añadieron dos restricciones nuevas: orientación global mínima respecto a la vertical (\texttt{brazo\_colgante}) y alcance mínimo hombro-muñeca (\texttt{muneca\_muy\_cerca}). Estas tres configuraciones se evaluaron cuantitativamente y sus resultados se presentan en la Sección~\ref{sec:eval_heuristica}.
+
+\textbf{Etapa 4 — Histéresis asimétrica.} Con la validación estabilizada, el estado booleano del gesto oscilaba (\textit{flickering}) cuando la confianza rondaba el umbral de activación. Se introdujo la confianza acumulada $C_t$ con velocidades de subida y bajada asimétricas: activación rápida ($+0.40 \cdot c$ por \textit{frame}) y desactivación lenta ($-0.10$ por \textit{frame}). El resultado es un sistema que reacciona ágilmente al inicio del gesto pero absorbe pérdidas momentáneas de \textit{tracking} sin interrumpir la interacción.
+
+\textbf{Etapa 5 — Fusión jerárquica ponderada.} La dirección basada únicamente en shoulder$\rightarrow$wrist subestimaba la desviación lateral en gestos oblicuos. Se rediseñó la estimación mediante \texttt{fuseVectors()}, que combina cuatro vectores articulares con pesos diferenciados. $\vec{v}_{EW}$ (codo$\rightarrow$muñeca) recibió el mismo peso que el proximal $\vec{v}_{SE}$ porque captura la variación del antebrazo cuando el hombro permanece aproximadamente vertical.
+
+\textbf{Etapa 6 — Arquitectura jerárquica Pose/Hands y debounce de brazo.} La asignación de la mano de Hands al brazo activo por etiqueta \textit{Left/Right} fallaba en vistas no frontales. Se cambió a búsqueda por proximidad geométrica entre muñeca de Pose y muñeca de Hands. Se introdujeron dos tablas de pesos (BASE y HANDS) conmutadas por un tracker de fiabilidad de 10 \textit{frames}. Paralelamente, se añadió debounce de cambio de brazo activo (margen de \textit{score} y ventana de 5 \textit{frames} consecutivos) para evitar \textit{switches} espurios cuando ambos brazos puntúan de forma similar.
 
 \subsection{Visión general del pipeline}
 
@@ -775,6 +796,293 @@ La Fase 5 expone mediante controles deslizantes en la interfaz de usuario los do
 
 
 %----------
+%	CAPÍTULO 4 — EVALUACIÓN EXPERIMENTAL
+%----------
+
+\chapter{Evaluación experimental}
+\label{cap:evaluacion}
+
+Este capítulo describe los experimentos realizados para validar el sistema desarrollado a lo largo de las cinco fases. La evaluación se estructura en tres niveles de granularidad creciente: la detección binaria del gesto de \textit{pointing} (Sección~\ref{sec:eval_heuristica}), la precisión espacial del \textit{grounding} sobre la superficie calibrada (Sección~\ref{sec:eval_fingerprint}) y la comparación con modelos de visión-lenguaje (\textit{VLLM}) comerciales y de código abierto como línea base de referencia (Sección~\ref{sec:eval_vllm}). Los conjuntos de datos de evaluación de la Fase~2 ---utilizados como guía de diseño de la heurística y no como evaluación del sistema completo--- se discutieron en la Sección~\ref{sec:fusion}.
+
+\section{Protocolo de evaluación}
+\label{sec:eval_protocolo}
+
+\subsection{Condiciones experimentales}
+
+Todos los experimentos se realizaron en interiores con iluminación ambiente estable, cámara web de 30 fps a resolución 1280$\times$720, y el sistema ejecutándose íntegramente en el navegador (sin servidor de inferencia externo). Los datos de evaluación incluyen capturas del propio desarrollador del sistema, de otros sujetos no involucrados en el desarrollo (familiares) y fotogramas obtenidos de fuentes externas, lo que aporta cierta variabilidad morfológica e interindividual. No obstante, el número total de sujetos es reducido y no constituye un estudio controlado con cohorte representativa; esta limitación se discute en la Sección~\ref{sec:eval_discusion}.
+
+La distancia sujeto--cámara empleada en los protocolos de \textit{fingerprint} fue de 1{,}5\,m, valor seleccionado a partir de las recomendaciones del estudio de \textit{landmarks} (Capítulo~3): a esa distancia la muñeca supera el 90\,\% de visibilidad y el jitter se mantiene en zona moderada. Las capturas de la evaluación de heurística se obtuvieron a la misma distancia y condición de luz.
+
+\subsection{Métricas empleadas}
+
+Para la evaluación de la heurística de detección se emplea la terminología estándar de clasificación binaria:
+\begin{itemize}
+  \item \textbf{TP} (\textit{true positive}): \textit{frame} con gesto real detectado correctamente.
+  \item \textbf{FN} (\textit{false negative}): \textit{frame} con gesto real no detectado.
+  \item \textbf{TN} (\textit{true negative}): \textit{frame} sin gesto correctamente rechazado.
+  \item \textbf{FP} (\textit{false positive}): \textit{frame} sin gesto incorrectamente detectado.
+  \item \textbf{Accuracy} $= (TP+TN)/(TP+TN+FP+FN)$.
+  \item \textbf{Recall} $= TP/(TP+FN)$: proporción de gestos reales detectados.
+  \item \textbf{F1} $= 2 \cdot \mathrm{Prec} \cdot \mathrm{Rec} / (\mathrm{Prec}+\mathrm{Rec})$: media armónica.
+  \item \textbf{Dirección correcta}: porcentaje de TP en que la región predicha coincide con la región real (métrica sólo aplicable cuando el sistema detecta y localiza simultáneamente).
+\end{itemize}
+
+Para la evaluación de precisión espacial se define la \textbf{precisión de región} como el porcentaje de \textit{frames} con predicción de región en que dicha predicción coincide exactamente con la región de \textit{ground truth} de la celda 3$\times$3. Se calcula sobre el subconjunto de \textit{frames} en que el sistema emitió una región (denominador variable por escenario). Se reportan adicionalmente las tasas de detección de gesto y de \textit{Hands} fiable.
+
+Para el comparador VLLM se reportan la \textbf{exactitud de detección} (decisión binaria gesto/no-gesto correcta) y la \textbf{exactitud de región} (región correcta entre los casos en que ambos, sistema y modelo, detectaron gesto).
+
+\section{Evaluación de la heurística de detección de pointing}
+\label{sec:eval_heuristica}
+
+\subsection{Protocolo de evaluación por etapas}
+
+Para caracterizar la contribución de cada componente del validador heurístico se diseñó un estudio de ablación con seis etapas acumulativas sobre el mismo conjunto de \num{51}~imágenes estáticas anotadas manualmente. Las imágenes representan gestos de \textit{pointing} con ambos brazos, distintas distancias y variaciones de pose, así como situaciones de no-gesto (brazo caído, cruzado o en reposo). Para cada imagen se registra la presencia de gesto real (\texttt{Apuntando\_Real}), la detección del sistema (\texttt{Detectado}), la razón de rechazo cuando procede y si la dirección predicha es correcta (\texttt{Dirección\_Correcta}).
+
+Las seis etapas difieren en los componentes de validación activos:
+
+\begin{itemize}
+  \item \textbf{E1}: fusión exclusiva con el vector proximal (hombro$\to$codo, $w=1{,}0$); sin ningún umbral de validación biomecánica.
+  \item \textbf{E2}: pesos base completos ($w_{SE}{=}0{,}35$, $w_{EW}{=}0{,}35$, $w_{SW}{=}0{,}15$, $w_{WI}{=}0{,}15$); umbral binario de extensión $\theta < 30°$.
+  \item \textbf{E3}: reemplaza el umbral binario por el factor gradual \texttt{extScore} ($\theta_{\mathrm{ref}}{=}150°$); añade restricción de orientación global (${\geq}30°$ respecto a la vertical descendente) y alcance mínimo de muñeca (${\geq}0{,}12$ en coordenadas normalizadas). Validación biomecánica completa (Sección~\ref{sec:validacion}).
+  \item \textbf{E4}: E3 más histéresis asimétrica ($\alpha_{\uparrow}{=}0{,}40$, $\alpha_{\downarrow}{=}0{,}10$, umbral de activación 0,45). Mecanismo puramente temporal; numéricamente equivalente a E3 sobre imágenes estáticas.
+  \item \textbf{E5}: E4 más ventana de estabilidad de \textit{Hands} ($N_{\min}{=}6$~\textit{frames}). Ídem, temporal; equivalente a E3 en este protocolo.
+  \item \textbf{E6}: E5 más pesos dinámicos según fiabilidad de \textit{Hands} y \textit{debounce} de lado activo (5~\textit{frames}). La redistribución de pesos afecta imágenes estáticas cuando se detectan \textit{landmarks} de mano; cinco imágenes con etiqueta ambigua recibieron \textit{ground truth} revisado al reevaluar con \textit{Hands} activo.
+\end{itemize}
+
+\subsection{Resultados de detección}
+
+La Tabla~\ref{tab:heuristica} recoge las métricas de clasificación binaria y de dirección para las seis etapas del estudio de ablación ($n=51$).
+
+\begin{table}[htbp]
+\caption{\label{tab:heuristica}Resultados de detección del gesto de \textit{pointing} por etapa del estudio de ablación ($n = 51$ imágenes). E4 y E5 son numéricamente iguales a E3 en detección porque sus mecanismos (histéresis asimétrica, ventana de estabilidad de \textit{Hands}) son puramente temporales. E6 incluye cinco anotaciones ambiguas revisadas respecto a E3--E5. Sombreado: \colorbox{green!25}{verde} $\geq 90$\,\% · \colorbox{yellow!35}{amarillo} 80--90\,\% · \colorbox{red!20}{rojo} $< 80$\,\%.}
+{\small
+\begin{tabular}{lccccccccc}
+\hline
+\textbf{Etapa} & \textbf{TP} & \textbf{FN} & \textbf{TN} & \textbf{FP} & \textbf{Acc.} & \textbf{Prec.} & \textbf{Recall} & \textbf{F1} & \textbf{Dir.} \\
+\hline
+E1 & 31 &  0 &  0 & 20 & \cellcolor{red!20}60{,}8\,\% & \cellcolor{red!20}60{,}8\,\% & \cellcolor{green!25}100{,}0\,\% & \cellcolor{red!20}75{,}6\,\% & \cellcolor{red!20}25{,}8\,\% \\
+E2 & 17 & 15 & 10 &  9 & \cellcolor{red!20}52{,}9\,\% & \cellcolor{red!20}65{,}4\,\% & \cellcolor{red!20}53{,}1\,\%   & \cellcolor{red!20}58{,}6\,\% & \cellcolor{red!20}47{,}1\,\% \\
+E3 & 21 & 10 & 16 &  4 & \cellcolor{red!20}72{,}5\,\% & \cellcolor{yellow!35}84{,}0\,\% & \cellcolor{red!20}67{,}7\,\%  & \cellcolor{red!20}75{,}0\,\% & \cellcolor{red!20}76{,}2\,\% \\
+E4 & 21 & 10 & 16 &  4 & \cellcolor{red!20}72{,}5\,\% & \cellcolor{yellow!35}84{,}0\,\% & \cellcolor{red!20}67{,}7\,\%  & \cellcolor{red!20}75{,}0\,\% & \cellcolor{red!20}71{,}4\,\% \\
+E5 & 21 & 10 & 16 &  4 & \cellcolor{red!20}72{,}5\,\% & \cellcolor{yellow!35}84{,}0\,\% & \cellcolor{red!20}67{,}7\,\%  & \cellcolor{red!20}75{,}0\,\% & \cellcolor{red!20}76{,}2\,\% \\
+E6 & 23 &  7 & 19 &  2 & \cellcolor{yellow!35}82{,}4\,\% & \cellcolor{green!25}92{,}0\,\% & \cellcolor{red!20}76{,}7\,\%  & \cellcolor{yellow!35}83{,}6\,\% & \cellcolor{green!25}91{,}3\,\% \\
+\hline
+\end{tabular}
+}
+\end{table}
+
+\textbf{E1 --- sin validación.} El \textit{recall} del 100\,\% confirma que el sistema detecta cualquier posición de brazo; la precisión del 60{,}8\,\% revela que uno de cada tres casos de no-gesto activa el detector. La dirección predicha coincide con la real en sólo el 25{,}8\,\% de los verdaderos positivos, lo que muestra que el vector proximal hombro$\to$codo es insuficiente como estimador de dirección de \textit{pointing}.
+
+\textbf{E2 --- umbral binario de extensión.} Introducir el rechazo $\theta < 30°$ genera el efecto opuesto: la precisión sube al 65{,}4\,\% pero el \textit{recall} cae al 53{,}1\,\%, ya que gestos válidos con el codo ligeramente flexionado quedan descartados. El F1 (58{,}6\,\%) es inferior al de E1, lo que muestra que un criterio binario de extensión penaliza más de lo que protege.
+
+\textbf{E3 --- validación biomecánica gradual.} Reemplazar el umbral binario por \texttt{extScore} y añadir las restricciones de orientación y alcance produce el salto de calidad más pronunciado del estudio: la precisión sube al 84{,}0\,\% (de 20 falsos positivos a sólo 4) y la dirección correcta alcanza el 76{,}2\,\% de los TP. Los diez falsos negativos restantes corresponden principalmente a imágenes con el brazo en posición muy lateral o con la muñeca proyectada cerca del hombro (\texttt{muneca\_muy\_cerca}), caso conocido de estimación errónea de BlazePose documentado en la Sección~\ref{sec:fusion}.
+
+\textbf{E4 y E5 --- mecanismos temporales.} La histéresis asimétrica (E4) y la ventana de estabilidad de \textit{Hands} (E5) no afectan imágenes estáticas porque ambas dependen del estado acumulado entre \textit{frames} consecutivos. La equivalencia numérica exacta E3\,=\,E4\,=\,E5 en TP/FP/FN/TN constituye una validación implícita de la implementación del evaluador de ablación: el modo de imagen individual desactiva correctamente la acumulación de estado.
+
+\textbf{E6 --- pesos dinámicos.} Incorporar la redistribución de pesos según la fiabilidad de \textit{Hands} mejora todos los indicadores: accuracy 82{,}4\,\%, precisión 92{,}0\,\% y F1 83{,}6\,\%; la dirección correcta alcanza el 91{,}3\,\%. Dado que cinco imágenes con etiqueta ambigua recibieron \textit{ground truth} revisado respecto a E3--E5, la comparación directa es parcialmente heterogénea. \textbf{La etapa E3 establece la validación biomecánica base del sistema; las etapas E4--E6 añaden robustez temporal para el funcionamiento en vídeo a tiempo real.}
+
+\section{Evaluación de precisión espacial (\textit{fingerprint})}
+\label{sec:eval_fingerprint}
+
+\subsection{Protocolo de escenarios}
+
+Para evaluar la precisión del \textit{grounding} espacial de extremo a extremo ---desde la imagen de cámara hasta la etiqueta de región 3$\times$3--- se diseñaron seis escenarios que representan las principales variaciones de la geometría de observación:
+
+\begin{itemize}
+  \item \textbf{Frontal}: sujeto de frente a la cámara, señalando las nueve regiones de la pizarra de forma sistemática. Escenario de referencia.
+  \item \textbf{Espaldas}: sujeto con la espalda orientada hacia la cámara, señalando el tablero frente a él. El modelo de Pose pierde la visibilidad de la cara y la calidad de detección de manos cae significativamente.
+  \item \textbf{Lateral izquierda / Lateral derecha}: sujeto a 90° respecto al eje óptico, señalando la pizarra de lado. El brazo activo y la mano quedan en planos distintos de la proyección.
+  \item \textbf{Movimiento con explicación}: sujeto desplazándose frente al tablero mientras señala y explica, simulando el uso real en una presentación.
+  \item \textbf{45 grados}: sujeto a 45° de ángulo oblicuo respecto a la cámara, entre el escenario frontal y el lateral.
+\end{itemize}
+
+Cada sesión se grabó con el sistema de logging de la Fase~5 a 30 fps; el \textit{ground truth} de región (\texttt{GT\_Region}) se asignó manualmente \textit{frame} a \textit{frame} durante la anotación. Las sesiones suman 15.757 \textit{frames} etiquetados en total.
+
+\subsection{Precisión de región por escenario}
+
+La Tabla~\ref{tab:fingerprint} muestra, para cada escenario, el número de \textit{frames}, la tasa de detección de gesto, la precisión de región sobre los \textit{frames} con predicción, y el desglose por modo de \textit{grounding}.
+
+\begin{table}[htbp]
+\caption{\label{tab:fingerprint}Resultados de precisión espacial por escenario. \textit{Det.}: tasa de detección de gesto (\textit{frames} con \texttt{Gesto=Sí} / total). \textit{Prec. reg.}: región predicha correcta / \textit{frames} con gesto detectado (equivalente a \textit{accGesture} en el analizador). \textit{Raycast\,\%} y \textit{Fingertip\,\%}: precisión dentro de los \textit{frames} que usaron cada modo. Sombreado: \colorbox{green!25}{verde} $\geq 90$\,\% · \colorbox{yellow!35}{amarillo} 80--90\,\% · \colorbox{red!20}{rojo} $< 80$\,\%.}
+\begin{tabular}{lrcccc}
+\hline
+\textbf{Escenario} & \textbf{Frames} & \textbf{Det.\,(\%)} & \textbf{Prec. reg.\,(\%)} & \textbf{Raycast\,(\%)} & \textbf{Fingertip\,(\%)} \\
+\hline
+Frontal            & 3.568 & 98{,}4 & \cellcolor{green!25}99{,}8 & 100{,}0 & 100{,}0 \\
+Movimiento         & 1.301 & 88{,}0 & \cellcolor{yellow!35}87{,}6 &  48{,}3 &  93{,}9 \\
+Lateral derecha    & 2.346 & 90{,}4 & \cellcolor{yellow!35}80{,}9 &  90{,}5 &  80{,}8 \\
+45 grados          & 3.227 & 78{,}1 & \cellcolor{red!20}78{,}7   &  58{,}8 &  97{,}1 \\
+Lateral izquierda  & 2.388 & 98{,}5 & \cellcolor{red!20}79{,}6   &  92{,}0 &  70{,}6 \\
+Espaldas           & 2.933 & 94{,}4 & \cellcolor{red!20}76{,}3   &  69{,}9 &  97{,}1 \\
+\hline
+\end{tabular}
+\end{table}
+
+\textbf{Escenario frontal.} La precisión de región alcanza el 99{,}8\,\% con una tasa de detección del 98{,}4\,\%. Los únicos errores residuales (0{,}2\,\%) corresponden a \textit{frames} de gesto detectado en los que el rayo no intersectó el polígono calibrado, por lo que el sistema no emitió una predicción de región y el analizador los contabiliza como fallos. Es destacable que esta precisión casi perfecta se mantiene aunque solo el 51{,}7\,\% de los \textit{frames} tienen \textit{Hands} fiable; el 48{,}3\,\% restante opera en modo \textit{raycast}, que en vista frontal es igualmente preciso al 100\,\%. Esto valida el diseño del \textit{grounding} adaptativo: cuando la geometría de proyección del brazo coincide con la dirección real de pointing, el rayo de brazo es suficiente sin necesidad de detectar la posición del dedo.
+
+\textbf{Escenario de movimiento.} La precisión cae al 87{,}6\,\% y la tasa de detección baja al 88{,}0\,\%, lo que refleja que el usuario en movimiento genera \textit{frames} de transición donde la heurística detecta gesto pero el sistema aún no ha estabilizado la dirección. El modo \textit{fingertip} domina con 93{,}9\,\% de precisión (91{,}0\,\% de \textit{Hands} fiable), mientras que el \textit{raycast} cae a 48{,}3\,\%: durante el desplazamiento, los vectores articulares del brazo no convergen hacia el objetivo instantáneo, lo que degrada el rayo de pointing.
+
+\textbf{Escenarios laterales.} En ambos casos, el modo \textit{raycast} supera al \textit{fingertip}: lateral izquierda (92{,}0\,\% vs 70{,}6\,\%) y lateral derecha (90{,}5\,\% vs 80{,}8\,\%). Este patrón inverso al frontal se explica por la perspectiva lateral: la posición proyectada del dedo en la imagen 2D no corresponde directamente a la región señalada en el tablero cuando el brazo está orientado perpendicularmente al eje óptico, produciendo un escorzo sistemático. En cambio, el rayo construido a partir de los ángulos del brazo en el plano imagen captura mejor la dirección de pointing desde la perspectiva lateral. La diferencia entre laterales (79{,}6\,\% vs 80{,}9\,\%) puede atribuirse a que la mano derecha ---más frecuentemente usada para señalar en el sujeto evaluado--- queda más visible en vista lateral derecha.
+
+\textbf{Escenario a 45 grados.} La tasa de detección cae al 78{,}1\,\%, el valor más bajo de todos los escenarios, probablemente porque la posición oblicua del cuerpo genera landmarks con visibilidades intermedias que activan la restricción de confianza de la heurística. La precisión de \textit{fingertip} es, no obstante, muy alta (97{,}1\,\%), lo que indica que cuando \textit{Hands} es fiable (55{,}5\,\% de los \textit{frames}), la posición del dedo sigue siendo un predictor preciso desde un ángulo de 45°.
+
+\textbf{Escenario espaldas.} Es el escenario de mayor degradación (76{,}3\,\%). Solo el 23{,}6\,\% de los \textit{frames} tienen \textit{Hands} fiable, lo que fuerza al sistema a operar casi en exclusiva en modo \textit{raycast} (2.123 de 2.769 \textit{frames} con predicción, 76{,}7\,\%). El \textit{raycast} alcanza un 69{,}9\,\% de precisión: el rayo de brazo construido con los \textit{landmarks} de Pose desde la vista trasera acumula errores geométricos porque la estimación de hombro y codo con el usuario de espaldas es menos fiable ---los \textit{landmarks} de tronco posterior presentan mayor jitter que en vista frontal---. Pese a esta degradación, el sistema mantiene una funcionalidad básica incluso en la condición más adversa evaluada.
+
+\subsection{Análisis del modo de grounding adaptativo}
+
+El sistema selecciona automáticamente entre \textit{fingertip} y \textit{raycast} en cada \textit{frame} según la fiabilidad de \textit{Hands} (Sección~\ref{sec:fusion}). La Tabla~\ref{tab:grounding_modes} consolida el comportamiento de cada modo.
+
+\begin{table}[htbp]
+\caption{\label{tab:grounding_modes}Precisión de los modos de \textit{grounding} por escenario. Se indica entre paréntesis el número de \textit{frames} de cada modo. \textbf{Negrita}: modo dominante en precisión para ese escenario.}
+\begin{tabular}{lcc}
+\hline
+\textbf{Escenario} & \textbf{Fingertip (\%, $n$)} & \textbf{Raycast (\%, $n$)} \\
+\hline
+Frontal           & \textbf{100{,}0} (1.835) & \textbf{100{,}0} (1.668) \\
+Movimiento        & \textbf{93{,}9} (1.008)  &          48{,}3   (116) \\
+Lateral derecha   &          80{,}8  (1.639) & \textbf{90{,}5}   (432) \\
+45 grados         & \textbf{97{,}1} (1.335)  &          58{,}8  (1.167) \\
+Lateral izquierda &          70{,}6  (1.357) & \textbf{92{,}0}   (994) \\
+Espaldas          & \textbf{97{,}1}   (646)  &          69{,}9  (2.123) \\
+\hline
+\end{tabular}
+\end{table}
+
+El análisis revela dos regímenes diferenciados. En primer lugar, \textit{fingertip} es muy preciso ($>$93\,\%) cuando \textit{Hands} es fiable y la vista no es lateral: frontal, movimiento, 45°, espaldas. En segundo lugar, \textit{raycast} supera a \textit{fingertip} en las vistas laterales, donde el escorzo del dedo introduce un sesgo sistemático que el rayo de brazo no sufre. Este patrón sugiere que una futura mejora podría detectar automáticamente la orientación del usuario respecto a la cámara para ponderar dinámicamente ambos modos más allá de la simple señal de fiabilidad de \textit{Hands}.
+
+\subsection{Análisis de errores por región}
+
+La Figura~\ref{fig:confusion} muestra las matrices de confusión para los escenarios frontal (mejor caso) y espaldas (peor caso). Cada celda indica el número de \textit{frames} con gesto cuya región GT es la de la fila y la región predicha es la de la columna; la intensidad del color refleja el valor normalizado por fila (recall por clase).
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth]{imagenes/confusion_matrices.png}
+  \caption{\label{fig:confusion}Matrices de confusión para los escenarios frontal y espaldas. Filas = región real (\textit{ground truth}); columnas = región predicha. Verde (diagonal): aciertos; rojo (fuera de diagonal): errores. Intensidad proporcional al recall por clase.}
+\end{figure}
+
+En el escenario frontal la diagonal es prácticamente perfecta, con errores residuales inferiores al 1\,\% concentrados en transiciones entre regiones adyacentes. En el escenario espaldas, el 81\,\% de los errores (531 de 657) son confusiones sistemáticas del tipo \texttt{medio-*}$\to$\texttt{superior-izquierda}: \texttt{medio-centro} se predice como \texttt{superior-izquierda} en 443 \textit{frames}, y \texttt{medio-izquierda} en 88 adicionales. Este desplazamiento diagonal (a la vez vertical y horizontal) indica un sesgo geométrico del rayo de brazo en vista trasera: cuando el usuario apunta a la franja media del tablero de espaldas a la cámara, los \textit{landmarks} de hombro y codo de BlazePose Pose producen un vector cuya proyección en el plano imagen apunta hacia el cuadrante superior-izquierdo de la imagen, desplazando la predicción dos filas y una columna respecto al objetivo real. El tercer error en importancia (\texttt{superior-derecha}$\to$\texttt{superior-centro}, 83 \textit{frames}) sí corresponde a una confusión de columna adyacente, posiblemente por el espejo izquierda-derecha que introduce la vista trasera.
+
+\section{Comparación con modelos de visión-lenguaje}
+\label{sec:eval_vllm}
+
+\subsection{Configuración del experimento}
+
+Se construyó una herramienta de evaluación (\texttt{comparar\_vllm}) que permite anotar un conjunto de imágenes con el \textit{ground truth} de región y consultar automáticamente modelos de visión-lenguaje mediante la API local de Ollama. La evaluación se restringió deliberadamente a modelos ejecutados en local. El uso de una API externa con modelos \textit{cloud} de mayor capacidad podría mejorar los resultados de \textit{grounding}, pero entraría en contradicción directa con uno de los objetivos fundamentales del sistema: la privacidad de los datos. En un contexto educativo, el envío de imágenes de aula a servidores externos expone información sensible de docentes y alumnos, lo que resulta inaceptable con independencia de las políticas de retención del proveedor. A ello se suman dos inconvenientes adicionales: la latencia de red persistiría como obstáculo para cualquier uso en tiempo real, y el coste por consulta haría inviable el despliegue continuo en un sistema interactivo. Se evaluaron tres modelos de código abierto de tamaño compacto ejecutados localmente:
+
+\begin{itemize}
+  \item \textbf{Ministral-3B}: modelo multimodal de 3.000 millones de parámetros.
+  \item \textbf{Qwen2.5-VL}: modelo multimodal de la familia Qwen, arquitectura de visión-lenguaje integrada.
+  \item \textbf{Qwen3-VL}: versión más reciente de Qwen con razonamiento extendido (\textit{chain-of-thought}).
+\end{itemize}
+
+Se evaluaron dos condiciones de \textit{prompt}: un \textit{prompt} base que describe la tarea y la rejilla 3$\times$3 (\textit{prompt} normal), y el mismo \textit{prompt} enriquecido con ejemplos visuales imagen-etiqueta en turnos previos de la conversación (\textit{few-shot}). El conjunto de evaluación consta de 20 imágenes anotadas que incluyen las nueve regiones de la rejilla, casos de \texttt{no\_pointing} y \texttt{fuera\_pizarra}. Como referencia se incluye el sistema propio evaluado sobre las mismas imágenes.
+
+\subsection{Resultados de detección y localización de región}
+
+La Tabla~\ref{tab:vllm} recoge los resultados de exactitud de detección binaria y de región para cada modelo y condición.
+
+\begin{table}[htbp]
+\caption{\label{tab:vllm}Resultados del comparador VLLM ($n = 20$ imágenes). \textit{Det.}: exactitud de detección gesto/no-gesto. \textit{Región}: exactitud de región sobre TP del modelo. \textit{Lat.}: latencia media de inferencia. Sombreado: \colorbox{green!25}{verde} $\geq 80$\,\% · \colorbox{yellow!35}{amarillo} 10--80\,\% · \colorbox{red!20}{rojo} $< 10$\,\%.}
+\begin{tabular}{llccc}
+\hline
+\textbf{Modelo} & \textbf{Condición} & \textbf{Det.\,(\%)} & \textbf{Región\,(\%)} & \textbf{Lat. media} \\
+\hline
+Sistema (referencia) & — & \cellcolor{green!25}90 & \cellcolor{green!25}87 & $<$1\,ms \\
+\hline
+\multirow{2}{*}{Ministral-3B}
+  & Normal   & \cellcolor{yellow!35}80 & \cellcolor{red!20}0   & 20{,}5\,s \\
+  & Few-shot & \cellcolor{green!25}95 & \cellcolor{yellow!35}12 & 62{,}1\,s \\
+\hline
+\multirow{2}{*}{Qwen2.5-VL}
+  & Normal   & \cellcolor{green!25}95 & \cellcolor{yellow!35}12 & 24{,}4\,s \\
+  & Few-shot & \cellcolor{yellow!35}80 & \cellcolor{yellow!35}19 & 84{,}1\,s \\
+\hline
+\multirow{2}{*}{Qwen3-VL}
+  & Normal   & \cellcolor{green!25}100 & \cellcolor{yellow!35}25 & 98{,}9\,s \\
+  & Few-shot & \cellcolor{green!25}100 & \cellcolor{yellow!35}12 & 236{,}3\,s \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Análisis de sesgo de predicción y efecto del few-shot}
+
+El análisis de las distribuciones de predicción revela sesgos sistemáticos en todos los modelos. Ministral-3B con \textit{prompt} normal predice \texttt{medio-centro} en 19 de 20 imágenes con gesto, lo que produce un 0\,\% de exactitud de región a pesar de detectar gestos correctamente en el 80\,\% de los casos. Este comportamiento indica que el modelo ha aprendido un \textit{prior} estadístico fuerte hacia el centro de la pantalla, posiblemente por distribución sesgada en su datos de entrenamiento para tareas de señalización. Qwen2.5-VL con \textit{prompt} normal presenta un sesgo similar hacia \texttt{superior-centro} (16 de 20 predicciones). Qwen3-VL, con razonamiento extendido, alcanza la mejor exactitud de región en condición normal (25\,\%), pero a costa de una latencia media de 98{,}9\,s y con mayor variabilidad.
+
+El \textit{few-shot} con imágenes reales como turnos de conversación previos rompe parcialmente el sesgo de Ministral-3B en detección (80\,\%$\to$95\,\%) e incrementa ligeramente la precisión de región (0\,\%$\to$12\,\%), pero no consigue superar el 25\,\% de ningún modelo. En Qwen3-VL, el \textit{few-shot} incluso \emph{degrada} la exactitud de región (25\,\%$\to$12\,\%), posiblemente porque los ejemplos extra someten al modelo a un mayor consumo del contexto de ventana, diluyendo la instrucción principal. Las latencias se multiplican entre 2 y 3 en todos los modelos con \textit{few-shot}, con Qwen3-VL alcanzando los 236\,s de media por imagen, lo que lo descarta para cualquier uso en tiempo real.
+
+El sistema deíctico desarrollado en este trabajo supera a todos los modelos evaluados en exactitud de región (87\,\% frente al 25\,\% del mejor VLLM) y opera en tiempo real ($<$1\,ms por \textit{frame}), un factor de velocidad del orden de $10^{5}$ respecto a los VLLM locales más rápidos. Esta diferencia subraya que el \textit{grounding} espacial fino ---determinar la celda exacta dentro de una rejilla 3$\times$3--- es una tarea que requiere geometría explícita (calibración, homografía, rayo de pointing) que los modelos de visión-lenguaje de tamaño moderado no resuelven con precisión suficiente a través del \textit{prompt} únicamente.
+
+\section{Discusión de resultados}
+\label{sec:eval_discusion}
+
+Los experimentos realizados permiten extraer cuatro conclusiones principales sobre las capacidades y limitaciones del sistema.
+
+\textbf{Robustez de la heurística.} El estudio de ablación sobre 51~imágenes estáticas muestra una progresión clara a lo largo de las seis etapas. La etapa E1, sin ningún umbral de validación, obtiene \textit{recall} del 100\,\% pero acumula 20~falsos positivos (precisión 60{,}8\,\%), lo que confirma que el vector proximal por sí solo no discrimina gestos de pointing de posturas de reposo. La introducción de un umbral binario de extensión en E2 resulta contraproducente: el F1 cae al 58{,}6\,\% porque los gestos con el codo parcialmente flexionado quedan erróneamente rechazados. El salto de calidad más relevante se produce en E3, donde la sustitución del umbral binario por \texttt{extScore} y la incorporación de las restricciones de orientación y alcance reducen los falsos positivos de 20 a~4, elevando la precisión al 84{,}0\,\% y la dirección correcta al 76{,}2\,\% de los TP. Las etapas E4 y E5 son numéricamente idénticas a E3 sobre imágenes estáticas, validando que la histéresis y la ventana de estabilidad de \textit{Hands} son mecanismos puramente temporales. La etapa E6, con pesos dinámicos activos, alcanza precisión del 92{,}0\,\%, F1 del 83{,}6\,\% y dirección correcta del 91{,}3\,\%. Los falsos negativos residuales en E3--E6 corresponden mayoritariamente a \texttt{muneca\_muy\_cerca}, artefacto conocido del estimador de Pose cuando la muñeca se proyecta cerca del hombro (Sección~\ref{sec:fusion}), y no a un fallo de la heurística en sí.
+
+\textbf{Dependencia de la geometría de vista.} La precisión espacial varía significativamente con la orientación del usuario respecto a la cámara: 100\,\% en frontal, 79--81\,\% en laterales, 78{,}7\,\% a 45° y 76{,}3\,\% en espaldas. Esta degradación es inherente a cualquier sistema monocular que utilice \textit{landmarks} 2D sin reconstrucción 3D: la proyección perspectiva introduce ambigüedad en la profundidad que no puede resolverse sin cámara adicional o sensor de profundidad. Para el caso de uso principal ---un presentador frente a la pizarra en vista frontal o semilateral--- el sistema ofrece una precisión operativa superior al 82\,\%.
+
+\textbf{Complementariedad de fingertip y raycast.} El análisis por modo de \textit{grounding} muestra que ningún modo es dominante en todos los escenarios: \textit{fingertip} supera a \textit{raycast} en vistas frontales y durante el movimiento, mientras que \textit{raycast} es más preciso en vistas laterales. La estrategia adaptativa actual ---usar \textit{fingertip} cuando \textit{Hands} es fiable y \textit{raycast} en caso contrario--- es una heurística razonable que funciona bien en frontal, pero que deja margen de mejora en los laterales, donde \textit{Hands} sigue siendo fiable pero \textit{fingertip} sufre escorzo.
+
+\textbf{Limitaciones de los VLLM para \textit{grounding} espacial fino.} Los resultados del comparador VLLM confirman que los modelos evaluados no tienen capacidad de \textit{grounding} espacial a nivel de celda con el nivel de precisión requerido para este caso de uso. La causa principal no es la detección del gesto (que Qwen3-VL resuelve al 100\,\%), sino la correspondencia imagen--rejilla: sin calibración de la superficie y geometría proyectiva explícita, el modelo ha de inferir la posición de la celda únicamente de la apariencia visual, tarea que requiere conocimiento 3D implícito del que estos modelos carecen de forma consistente.
+
+\textbf{Limitaciones de la evaluación.} El estudio está sujeto a tres limitaciones principales. Primera, la diversidad de sujetos es limitada: aunque los datos incluyen capturas del desarrollador, otros sujetos adicionales y fotogramas de fuentes externas, el conjunto no sigue un protocolo de reclutamiento controlado ni cubre un rango representativo de alturas, envergaduras o estilos de señalización, lo que limita la generalización estadística de los resultados. Segunda, el conjunto de imágenes VLLM es pequeño (20 imágenes), suficiente para detectar tendencias pero no para inferencias estadísticas sólidas. Tercera, solo se evaluó una distancia fija (1{,}5\,m) en el protocolo de \textit{fingerprint}; distancias mayores o menores podrían modificar la distribución de modos de \textit{grounding} y, con ello, la precisión global.
+
+%----------
+%	CAPÍTULO 5 — CONCLUSIONES Y TRABAJO FUTURO
+%----------
+
+\chapter{Conclusiones y Trabajo Futuro}
+\label{chap:conclusiones}
+
+\section{Conclusiones}
+\label{sec:conclusiones}
+
+Este trabajo ha demostrado que es posible construir un sistema completo de reconocimiento de gestos deícticos de \textit{pointing} y \textit{grounding} espacial en tiempo real utilizando únicamente una webcam convencional y el navegador web como entorno de ejecución, sin hardware especializado ni envío de datos a servidores externos. Los resultados obtenidos permiten evaluar el grado de cumplimiento de cada uno de los objetivos específicos planteados.
+
+\textbf{O1 — Calibración geométrica.} El módulo de calibración manual permite al usuario seleccionar los cuatro vértices de cualquier superficie plana con precisión subpíxel y calcular la homografía rectificadora en menos de un segundo. La decisión de descartar la detección automática mediante un modelo de objetos —explorada con YOLOv8— resultó acertada: los \textit{bounding boxes} alineados con los ejes no capturan la perspectiva real de la pizarra desde ángulos oblicuos, lo que introduce errores sistemáticos en la homografía resultante. La calibración manual es genérica y aplicable sin modificaciones a cualquier tipo de superficie plana sin necesidad de reentrenamiento.
+
+\textbf{O2 — Estimación corporal en navegador.} La integración de MediaPipe Pose (33 \textit{landmarks}) y MediaPipe Hands (21 \textit{landmarks} por mano) mediante WebAssembly y WebGL permite procesar cada \textit{frame} en menos de 1\,ms de tiempo de inferencia, con una tasa de fotogramas suficiente para la interacción natural. El procesamiento es íntegramente local, en línea con los requisitos de privacidad establecidos en la Sección~\ref{sec:privacidad}.
+
+\textbf{O3 — Heurística de pointing.} El estudio de ablación sobre 51 imágenes confirma la necesidad de combinar múltiples criterios biomecánicos. La configuración final (etapa~E6) alcanza una precisión del 92{,}0\,\% y una exactitud de dirección del 91{,}3\,\%, reduciendo los falsos positivos de 20 (etapa~E1, sin umbrales) a~2. La sustitución del umbral binario de extensión por el factor gradual \texttt{extScore} resultó clave para evitar el rechazo erróneo de gestos con el codo parcialmente flexionado. La histéresis asimétrica y la ventana de estabilidad temporal hacen el sistema robusto frente a micro-oscilaciones durante el uso continuo.
+
+\textbf{O4 — Grounding espacial.} La estrategia adaptativa que combina \textit{fingertip} directo y \textit{raycast} rayo-polígono permite un \textit{grounding} preciso en la mayoría de los escenarios evaluados: 100\,\% de precisión espacial en vista frontal y 79--81\,\% en vistas laterales, con una exactitud de región global del 87\,\% sobre el conjunto de evaluación. El modo \textit{fingertip} domina en vistas frontales y gestos próximos a la superficie, mientras que el \textit{raycast} resulta más preciso cuando MediaPipe Hands pierde fiabilidad en vistas laterales.
+
+\textbf{O5 — Semántica temporal y clasificación de región.} La rejilla 3$\times$3 con \textit{debounce} de región configurable y confirmación por \textit{dwell} garantiza que los cambios de región detectados sean coherentes con la percepción humana. El mecanismo de \textit{debounce} (por defecto 5 \textit{frames} consecutivos para confirmar un cambio) elimina las oscilaciones en los límites del \textit{grid} sin introducir una latencia perceptible en el uso normal.
+
+\textbf{O6 — Metodología de evaluación.} Se diseñaron tres protocolos complementarios: un estudio de ablación sobre imágenes estáticas que permite comparar configuraciones heurísticas de forma controlada; una evaluación de \textit{fingerprint} espacial mediante vídeo con movimiento continuo y anotación \textit{frame} a \textit{frame} en cuatro orientaciones del usuario; y un comparador con modelos VLLM ejecutados localmente sobre un conjunto de 20 imágenes. Este último confirma que el \textit{grounding} espacial fino requiere geometría explícita: el mejor VLLM evaluado alcanza el 25\,\% de exactitud de región, frente al 87\,\% del sistema desarrollado, y opera cinco órdenes de magnitud más lento.
+
+En conjunto, el sistema cumple todos los objetivos específicos planteados y ofrece un rendimiento operativo adecuado para el caso de uso principal: un presentador en vista frontal o semilateral señalando una pizarra a 1{,}5\,m de la cámara, con precisión de región superior al 82\,\% en todos los escenarios evaluados. Este módulo de \textit{grounding} gestual está diseñado para integrarse con el módulo de transcripción de audio desarrollado en paralelo, de forma que la combinación de ambas salidas permita generar descripciones accesibles en tiempo real para estudiantes con discapacidad visual: el audio aporta el contenido semántico de la explicación y este trabajo aporta la referencia espacial concreta del gesto.
+
+\section{Trabajo Futuro}
+\label{sec:trabajo_futuro}
+
+El desarrollo del sistema ha puesto de manifiesto varias líneas de extensión que quedan fuera del alcance de este trabajo pero que representan mejoras sustanciales en robustez, generalidad y riqueza expresiva.
+
+\subsection{Calibración automática mediante marcadores fiduciales}
+
+La calibración manual de las esquinas de la pizarra supone una fricción de configuración que se vuelve inasumible cuando la cámara incorpora movimiento de seguimiento (PTZ o \textit{tracking} automático). Una línea de trabajo futuro consistiría en sustituir este paso por detección automática mediante marcadores fiduciales ArUco \citep{garrido2014automatic}, disponibles de forma nativa en OpenCV~4.x. Bastaría con imprimir cuatro marcadores de identificadores conocidos y fijarlos en las esquinas de la superficie de referencia: el sistema detectaría sus posiciones subpíxel cada \textit{frame} y recalcularía la homografía automáticamente, eliminando cualquier intervención manual y haciendo el sistema robusto a reencuadres de cámara en tiempo real.
+
+\subsection{Intersección 3D con calibración intrínseca de cámara}
+
+El sistema actual realiza el \textit{ray-casting} en espacio imagen 2D, ignorando el componente de profundidad de los \textit{landmarks} de BlazePose. La longitud focal de una webcam estándar permite aproximar la matriz intrínseca $K$ sin calibración explícita, aunque la precisión mejora sustancialmente con calibración formal mediante el método de Zhang \citep{zhang2000flexible}. Los \textit{landmarks} de BlazePose ya incluyen una estimación del componente $z$ relativo normalizado por la anchura del torso, lo que haría posible construir un rayo tridimensional desde el hombro hacia el punto de destino. La descomposición de la homografía calibrada con \texttt{cv.decomposeHomographyMat()} proporcionaría la orientación y traslación del plano del tablero en coordenadas de cámara, completando la información necesaria para calcular la intersección 3D exacta. Esta extensión mejoraría especialmente la precisión en vistas laterales, donde el \textit{foreshortening} del brazo introduce mayor ambigüedad en la proyección 2D.
+
+\subsection{Adaptación a múltiples superficies simultáneas}
+
+El sistema actual asume una única superficie de referencia calibrada manualmente. Una extensión natural consistiría en detectar automáticamente los planos relevantes de la escena mediante técnicas de estimación de profundidad monocular o RANSAC sobre características visuales, permitiendo que el sistema seleccione dinámicamente la superficie señalada entre varias alternativas sin intervención del usuario. Esto ampliaría el campo de aplicación a entornos donde coexisten pizarra, mesa y pantalla de proyección.
+
+\subsection{Dataset propio para evaluación comparativa}
+
+La evaluación realizada en este trabajo emplea imágenes y vídeos propios capturados sin un protocolo de reclutamiento controlado, lo que limita la generalización estadística de los resultados. La construcción de un \textit{dataset} público anotado con \textit{ground truth} de región sobre superficies planas calibradas permitiría comparar el sistema de forma directa con otros métodos de la literatura y establecer una línea base reproducible para trabajos futuros. Los \textit{datasets} existentes de \textit{pointing} 3D \citep{nakamura2023deepoint} no incluyen superficies calibradas y no pueden emplearse para evaluar el \textit{grounding} espacial, lo que justifica la creación de un \textit{benchmark} específico para esta tarea.
+
+\subsection{Arquitectura híbrida con modelos de visión-lenguaje}
+
+El sistema desarrollado y los modelos de visión-lenguaje son, en realidad, complementarios: el primero resuelve el \textit{dónde} geométrico en tiempo real, mientras que un VLLM podría resolver el \textit{qué} semántico —identificar el elemento concreto señalado dentro de la región detectada, generar una descripción textual del referente o interpretar la intención comunicativa del gesto. Una arquitectura híbrida combinaría la velocidad y precisión geométrica del sistema actual con la capacidad de comprensión semántica de modelos como Qwen-VL \citep{bai2023qwenvl} o LLaVA \citep{liu2023llava}, ejecutados localmente para preservar la privacidad y activados bajo demanda en lugar de a 30\,fps continuos, lo que haría viable su coste computacional.
+
+\subsection{Vocabulario gestual extendido}
+
+El sistema actual se limita al gesto deíctico de señalado puntual, que es el más frecuente en interacciones con pizarras \citep{mcneill1992}. Una extensión natural consistiría en ampliar el vocabulario gestual para incluir gestos de área: el barrido horizontal con el brazo extendido, que delimita una franja de la superficie, y el gesto de rango bimanual, en el que ambas manos señalan simultáneamente los extremos de un segmento. El módulo de detección de barrido requeriría rastrear la consistencia direccional de la velocidad angular del vector de \textit{pointing} durante un mínimo de \textit{frames}, discriminando el movimiento intencional del \textit{jitter} y del reposicionamiento del brazo. La infraestructura de detección de ambas manos ya disponible en el sistema facilitaría la implementación del gesto de rango sin dependencias adicionales.
+
+%----------
 %	BIBLIOGRAFÍA
 %----------
 
@@ -788,7 +1096,79 @@ La Fase 5 expone mediante controles deslizantes en la interfaz de usuario los do
 %	ANEXOS
 %----------
 
-% \chapter*{Anexo I}
-% \pagenumbering{gobble}
+\appendix
+
+\chapter{Prompts de evaluación VLLM}
+\label{chap:prompts}
+
+Este anexo recoge el texto literal de los \textit{prompts} empleados en el comparador VLLM descrito en la Sección~\ref{sec:eval_vllm}. Los modelos recibieron exactamente este texto en cada consulta, sin modificación alguna entre los distintos modelos evaluados.
+
+\section{Prompt base (condición \textit{normal})}
+\label{sec:prompt_normal}
+
+El siguiente \textit{prompt} se envía junto con la imagen de consulta en un único turno de conversación:
+
+\begin{lstlisting}[numbers=none, basicstyle=\ttfamily\footnotesize, breaklines=true]
+In this image a person may or may not be making a pointing gesture
+toward a display surface. The display surface can be a whiteboard,
+blackboard, TV screen, monitor, projector screen, or any flat panel
+mounted on the wall.
+
+Possible scenarios:
+1. The person is NOT making a pointing gesture
+   -> answer: no_pointing
+2. The person IS pointing, but NOT toward any display surface
+   visible in the image
+   -> answer: fuera_pizarra
+3. The person IS pointing at the display surface (whiteboard, TV,
+   screen, or board)
+   -> answer with the region they are pointing at (see grid below)
+
+If pointing at the display surface, it is divided into a 3x3 grid:
+Row 1 (top):    top-left    (superior-izquierda) |
+                top-center  (superior-centro)    |
+                top-right   (superior-derecha)
+Row 2 (middle): middle-left  (medio-izquierda)  |
+                middle-center (medio-centro)     |
+                middle-right (medio-derecha)
+Row 3 (bottom): bottom-left  (inferior-izquierda) |
+                bottom-center (inferior-centro)   |
+                bottom-right  (inferior-derecha)
+
+Answer with ONLY one of these exact identifiers:
+no_pointing | fuera_pizarra
+superior-izquierda | superior-centro | superior-derecha
+medio-izquierda    | medio-centro    | medio-derecha
+inferior-izquierda | inferior-centro | inferior-derecha
+
+If example images are provided before this one, use their correct
+labels as visual reference.
+End your response with a line in this exact format:
+ANSWER: <identifier>
+Example: ANSWER: medio-derecha
+\end{lstlisting}
+
+\section{Estructura de la condición \textit{few-shot}}
+\label{sec:prompt_fewshot}
+
+En la condición \textit{few-shot}, el \textit{prompt} base de la Sección~\ref{sec:prompt_normal} no se envía directamente con la imagen de consulta, sino que se utiliza en el \textbf{primer turno} de una conversación multiturn junto con la primera imagen de ejemplo ya etiquetada. Los turnos siguientes usan un \textit{prompt} de continuación más breve. La Tabla~\ref{tab:fewshot_turns} detalla la estructura de la conversación.
+
+\begin{table}[htbp]
+\caption{\label{tab:fewshot_turns}Estructura de la conversación \textit{few-shot}. Cada fila representa un turno. Los turnos de tipo \textit{assistant} son las respuestas del modelo incluidas como contexto artificial.}
+\begin{tabular}{clp{8cm}}
+\hline
+\textbf{Turno} & \textbf{Rol} & \textbf{Contenido} \\
+\hline
+1 & \texttt{user}      & Prompt base completo (Sección~\ref{sec:prompt_normal}) + imagen ejemplo 1 \\
+2 & \texttt{assistant} & Etiqueta correcta del ejemplo 1 (p.~ej.\ \texttt{superior-derecha}) \\
+$\vdots$ & $\vdots$ & $\vdots$ \\
+$2k{-}1$ & \texttt{user}      & \texttt{And this image? End with: ANSWER: <identifier>} + imagen ejemplo $k$ \\
+$2k$ & \texttt{assistant} & Etiqueta correcta del ejemplo $k$ \\
+$2k{+}1$ & \texttt{user}      & \texttt{And this image? End with: ANSWER: <identifier>} + imagen de consulta \\
+\hline
+\end{tabular}
+\end{table}
+
+La respuesta del modelo al último turno es la que se analiza y de la que se extrae la región predicha mediante la línea \texttt{ANSWER:~<identifier>}.
 
 \end{document}

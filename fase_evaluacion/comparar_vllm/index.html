@@ -32,6 +32,13 @@
     <button class="btn-sm" id="btn-refresh-models" title="Actualizar lista de modelos">↺</button>
     <label>Modelo</label>
     <select id="sel-model"><option value="">— sin modelos —</option></select>
+    <label title="Tamaño de contexto en tokens (aumentar si hay few-shot)">ctx</label>
+    <input type="number" id="inp-num-ctx" value="8192" min="2048" max="131072" step="1024" style="width:72px">
+    <label title="Máximo de tokens en la respuesta (recorta el razonamiento)">max tok</label>
+    <input type="number" id="inp-num-predict" value="300" min="50" max="4096" step="50" style="width:60px">
+    <label class="chk-label" title="Prefija /no_think al prompt — desactiva razonamiento en qwen3 y similares">
+      <input type="checkbox" id="chk-no-think"> /no_think
+    </label>
   </div>
   <div class="cfg-group" id="cfg-openai" style="display:none">
     <label>API Key</label>
@@ -125,6 +132,16 @@
         <button class="btn-sm" id="btn-reset-prompt">Reset</button>
       </div>
       <textarea id="txt-prompt" rows="9"></textarea>
+    </section>
+
+    <section class="fewshot-section">
+      <div class="prompt-header">
+        <h3>Few-shot <span class="badge" id="fewshot-count">0</span></h3>
+        <label class="btn-sm">+ Ejemplo<input type="file" id="inp-fewshot" accept="image/*" multiple hidden></label>
+      </div>
+      <div id="fewshot-list" class="fewshot-list">
+        <span class="fewshot-empty">Sin ejemplos — prompt sin contexto visual previo</span>
+      </div>
     </section>
 
   </div>

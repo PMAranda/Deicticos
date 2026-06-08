@@ -111,7 +111,10 @@ superior-izquierda | superior-centro | superior-derecha
 medio-izquierda | medio-centro | medio-derecha
 inferior-izquierda | inferior-centro | inferior-derecha
 
-One identifier only. No explanation.`;
+If example images are provided before this one, use their correct labels as visual reference.
+End your response with a line in this exact format:
+ANSWER: <identifier>
+Example: ANSWER: medio-derecha`;
 
 // ── Estado ────────────────────────────────────────────────────────────────────
 
@@ -124,6 +127,7 @@ const state = {
   systemCsv: {},
   activeModel: '',   // clave del modelo activo (ej. "llava", "gpt-4o")
   modelOrder: [],    // orden de aparición de modelos para las columnas
+  fewShot: [],       // [{ dataUrl, base64, label }]
 };
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -199,14 +203,12 @@ function getSelected(containerId) {
 
 function parseRegion(raw) {
   if (!raw?.trim()) return null;
-  // Eliminar bloques de razonamiento y normalizar
   const clean = raw
     .replace(/<think>[\s\S]*?<\/think>/gi, '')
     .replace(/_/g, '-')
     .trim();
   const text  = (clean || raw).toLowerCase();
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  const last  = lines[lines.length - 1] ?? '';
 
   const find = t => {
     for (const r of REGIONS) if (t.includes(r)) return r;
@@ -216,7 +218,21 @@ function parseRegion(raw) {
     for (const [alias, canon] of Object.entries(REGION_ALIASES)) if (t.includes(alias)) return canon;
     return null;
   };
-  return find(last) ?? find(text);
+
+  // 1. Patrón explícito "ANSWER: <id>" — más fiable para modelos de razonamiento
+  const answerLine = text.match(/answer:\s*([\w-]+)/);
+  if (answerLine) {
+    const found = find(answerLine[1]);
+    if (found) return found;
+  }
+
+  // 2. Última línea (modelos que responden directamente)
+  // 3. Últimas 3 líneas (conclusión de modelos que razonan brevemente)
+  // 4. Todo el texto como último recurso (puede capturar menciones descriptivas — impreciso)
+  return find(lines[lines.length - 1] ?? '')
+      ?? find(lines.slice(-3).join('\n'))
+      ?? find(lines.slice(-10).join('\n'))
+      ?? find(text);
 }
 
 // ── Resultado actual ──────────────────────────────────────────────────────────
@@ -438,16 +454,43 @@ async function queryVLLM() {
   }
 }
 
+function buildOllamaMessages(base64, prompt) {
+  const noThink  = document.getElementById('chk-no-think')?.checked;
+  const pfx      = noThink ? '/no_think\n' : '';
+  const labeled  = state.fewShot.filter(ex => ex.label && ex.base64);
+  const followUp = 'And this image? End with: ANSWER: <identifier>';
+  if (!labeled.length) return [{ role: 'user', content: pfx + prompt, images: [base64] }];
+  const msgs = [];
+  msgs.push({ role: 'user', content: pfx + prompt, images: [labeled[0].base64] });
+  msgs.push({ role: 'assistant', content: labeled[0].label });
+  for (let i = 1; i < labeled.length; i++) {
+    msgs.push({ role: 'user', content: followUp, images: [labeled[i].base64] });
+    msgs.push({ role: 'assistant', content: labeled[i].label });
+  }
+  msgs.push({ role: 'user', content: followUp, images: [base64] });
+  return msgs;
+}
+
 async function callOllama(base64, prompt) {
   const endpoint = document.getElementById('inp-endpoint').value.replace(/\/$/, '');
   const model    = document.getElementById('sel-model').value;
   const t0       = Date.now();
-  console.log(`[VLLM] ${model} — enviando imagen…`);
+  const nShot    = state.fewShot.filter(ex => ex.label && ex.base64).length;
+  console.log(`[VLLM] ${model} — enviando imagen… (${nShot} ejemplos few-shot)`);
 
   const res = await fetch(`${endpoint}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt, images: [base64] }], stream: true, options: { temperature: 0 } }),
+    body: JSON.stringify({
+      model,
+      messages: buildOllamaMessages(base64, prompt),
+      stream: true,
+      options: {
+        temperature:  0,
+        num_ctx:      parseInt(document.getElementById('inp-num-ctx').value)     || 8192,
+        num_predict:  parseInt(document.getElementById('inp-num-predict').value) || 300,
+      },
+    }),
   });
   if (!res.ok) throw new Error(`Ollama ${res.status}: ${await res.text()}`);
 
@@ -494,16 +537,29 @@ async function callOpenAI(base64, prompt) {
   const apiKey = document.getElementById('inp-apikey').value;
   const model  = document.getElementById('inp-oai-model').value;
   if (!apiKey) throw new Error('API Key vacía');
+
+  const labeled = state.fewShot.filter(ex => ex.label && ex.base64);
+  const messages = [];
+  const imgMsg = (b64, text) => ({ role: 'user', content: [
+    { type: 'text', text },
+    { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${b64}` } },
+  ]});
+  if (!labeled.length) {
+    messages.push(imgMsg(base64, prompt));
+  } else {
+    messages.push(imgMsg(labeled[0].base64, prompt));
+    messages.push({ role: 'assistant', content: labeled[0].label });
+    for (let i = 1; i < labeled.length; i++) {
+      messages.push(imgMsg(labeled[i].base64, 'And this image? End with: ANSWER: <identifier>'));
+      messages.push({ role: 'assistant', content: labeled[i].label });
+    }
+    messages.push(imgMsg(base64, 'And this image? End with: ANSWER: <identifier>'));
+  }
+
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model, max_tokens: 50, temperature: 0,
-      messages: [{ role:'user', content: [
-        { type:'text', text: prompt },
-        { type:'image_url', image_url: { url:`data:image/jpeg;base64,${base64}` } },
-      ]}],
-    }),
+    body: JSON.stringify({ model, max_tokens: 50, temperature: 0, messages }),
   });
   if (!res.ok) throw new Error(`OpenAI ${res.status}: ${await res.text()}`);
   const data = await res.json();
@@ -814,6 +870,64 @@ async function autoRunSystem() {
 }
 
 // ── Event listeners ───────────────────────────────────────────────────────────
+
+// ── Few-shot ──────────────────────────────────────────────────────────────────
+
+const FS_OPTIONS = [
+  { value: '', label: '— sin etiquetar —' },
+  { value: NO_POINTING,   label: 'no_pointing' },
+  { value: FUERA_PIZARRA, label: 'fuera_pizarra' },
+  ...REGIONS.map(r => ({ value: r, label: r })),
+];
+
+function renderFewShotList() {
+  const list = document.getElementById('fewshot-list');
+  const count = document.getElementById('fewshot-count');
+  const labeled = state.fewShot.filter(ex => ex.label).length;
+  count.textContent = `${labeled}/${state.fewShot.length}`;
+  if (!state.fewShot.length) {
+    list.innerHTML = '<span class="fewshot-empty">Sin ejemplos — prompt sin contexto visual previo</span>';
+    return;
+  }
+  list.innerHTML = '';
+  state.fewShot.forEach((ex, i) => {
+    const item = document.createElement('div');
+    item.className = 'fewshot-item';
+    const img = document.createElement('img');
+    img.className = 'fewshot-thumb';
+    img.src = ex.dataUrl;
+    const sel = document.createElement('select');
+    sel.className = 'fewshot-select' + (ex.label ? '' : ' unlabeled');
+    FS_OPTIONS.forEach(o => {
+      const opt = document.createElement('option');
+      opt.value = o.value; opt.textContent = o.label;
+      if (o.value === ex.label) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    sel.addEventListener('change', () => {
+      state.fewShot[i].label = sel.value;
+      sel.className = 'fewshot-select' + (sel.value ? '' : ' unlabeled');
+      document.getElementById('fewshot-count').textContent =
+        `${state.fewShot.filter(e => e.label).length}/${state.fewShot.length}`;
+    });
+    const del = document.createElement('button');
+    del.className = 'fewshot-del'; del.textContent = '×'; del.title = 'Eliminar';
+    del.addEventListener('click', () => { state.fewShot.splice(i, 1); renderFewShotList(); });
+    item.append(img, sel, del);
+    list.appendChild(item);
+  });
+}
+
+document.getElementById('inp-fewshot').addEventListener('change', async e => {
+  const files = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
+  for (const file of files) {
+    const dataUrl = await readAsDataURL(file);
+    const base64 = await resizeForVLLM(dataUrl);
+    state.fewShot.push({ dataUrl, base64, label: '' });
+  }
+  renderFewShotList();
+  e.target.value = '';
+});
 
 document.getElementById('inp-files').addEventListener('change', e => loadFiles(e.target.files));
 document.getElementById('inp-add').addEventListener('change',   e => { loadFiles(e.target.files); e.target.value = ''; });
