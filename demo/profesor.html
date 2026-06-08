@@ -660,7 +660,7 @@
       btnCamera.disabled    = false;
 
       checkOllamaConnection();
-      requestAnimationFrame(gestureLoop);
+      scheduleNextLoop();
 
     } catch (err) {
       console.error('[demo] Error activando IA/Cámara:', err);
@@ -746,11 +746,22 @@
   });
 
   // ── LOOP PRINCIPAL SEGURO ───────────────────────────────────────────────────
+  // Planifica el próximo frame: rAF cuando la pestaña es visible, setTimeout cuando está en fondo.
+  // El WebSocket activo evita el intensive throttling de Chrome (>30s bg → 1fps).
+  function scheduleNextLoop() {
+    if (!cameraActive) return;
+    if (document.hidden) {
+      setTimeout(gestureLoop, 40); // ~25 fps en segundo plano
+    } else {
+      requestAnimationFrame(gestureLoop);
+    }
+  }
+
   function gestureLoop() {
     if (!cameraActive) return;
     try {
       if (!camDisplay.videoWidth || !camDisplay.videoHeight) {
-        requestAnimationFrame(gestureLoop);
+        scheduleNextLoop();
         return;
       }
 
@@ -845,7 +856,7 @@
       }
     }
     
-    requestAnimationFrame(gestureLoop);
+    scheduleNextLoop();
   }
 
   function stopPointing() {

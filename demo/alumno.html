@@ -574,9 +574,32 @@
 
   const LERP = 0.18; // fracción del camino que se recorre por frame (~60 fps)
 
-  // Bucle de animación del puntero (siempre corriendo)
+  // Dibuja el puntero en su posición actual sin interpolación (para pestaña en fondo)
+  function drawPointerNow() {
+    const octx = overlay.getContext('2d');
+    octx.clearRect(0, 0, overlay.width, overlay.height);
+    if (!pointerVisible || !pdfDoc || overlay.width === 0) return;
+    const dpr = window.devicePixelRatio || 1;
+    const px  = curX * overlay.width;
+    const py  = curY * overlay.height;
+    const r   = 22 * dpr;
+    octx.globalAlpha = 0.85;
+    octx.strokeStyle = '#f59e0b';
+    octx.lineWidth   = 3 * dpr;
+    octx.beginPath(); octx.arc(px, py, r, 0, Math.PI * 2); octx.stroke();
+    octx.globalAlpha = 0.2;
+    octx.fillStyle   = '#f59e0b';
+    octx.beginPath(); octx.arc(px, py, r * 0.45, 0, Math.PI * 2); octx.fill();
+    octx.globalAlpha = 1;
+    octx.fillStyle   = '#f59e0b';
+    octx.beginPath(); octx.arc(px, py, 3 * dpr, 0, Math.PI * 2); octx.fill();
+    octx.globalAlpha = 1;
+  }
+
+  // Bucle de animación del puntero (activo cuando la pestaña es visible)
   function animateOverlay() {
     requestAnimationFrame(animateOverlay);
+    if (document.hidden) return; // el browser lo throttlearía; pintamos desde onPointerMove
     const octx = overlay.getContext('2d');
     octx.clearRect(0, 0, overlay.width, overlay.height);
     if (!pointerVisible || !pdfDoc || overlay.width === 0) return;
@@ -621,18 +644,28 @@
   animateOverlay();
 
   function onPointerMove(msg) {
-    targetX        = msg.x;
-    targetY        = msg.y;
+    targetX = msg.x;
+    targetY = msg.y;
     if (!pointerVisible) {
-      // Primer punto: colocar el cursor directamente para no salir desde (0,0)
       curX = targetX;
       curY = targetY;
     }
     pointerVisible = true;
+    // Si la pestaña está en segundo plano, rAF está pausado → pintar directamente
+    if (document.hidden) {
+      curX = targetX;
+      curY = targetY;
+      drawPointerNow();
+    }
   }
 
   function onPointerStop() {
     pointerVisible = false;
+    // Limpiar el overlay aunque la pestaña esté en fondo
+    if (document.hidden) {
+      const octx = overlay.getContext('2d');
+      octx.clearRect(0, 0, overlay.width, overlay.height);
+    }
   }
 
   // ── Panel de descripción IA ───────────────────────────────────────────────
