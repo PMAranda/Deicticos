@@ -106,6 +106,7 @@ hmargin=3cm
 % DISEÑO DE TABLAS y FIGURAS
 \usepackage{multirow}
 \usepackage{caption}
+\usepackage{subcaption}
 \usepackage{floatrow}
 \usepackage{array}
 \newcolumntype{P}[1]{>{\centering\arraybackslash}p{#1}}
@@ -382,6 +383,7 @@ Para alcanzar este objetivo principal se plantean los siguientes objetivos espec
 El desarrollo de este trabajo implica el procesamiento de imágenes de vídeo capturadas mediante la cámara del dispositivo del usuario, lo que requiere considerar el marco normativo aplicable tanto en materia de protección de datos como de uso de inteligencia artificial.
 
 \subsection{Protección de datos y privacidad}
+\label{sec:privacidad}
 
 El sistema accede a la cámara del dispositivo mediante la API \texttt{getUserMedia} del navegador, que requiere el consentimiento explícito del usuario en cada sesión. El procesamiento del vídeo se realiza íntegramente en el lado del cliente, sin que las imágenes sean transmitidas a ningún servidor externo ni almacenadas de forma persistente. El sistema no retiene datos personales entre sesiones: únicamente se procesan métricas agregadas de movimiento —ángulos, vectores de dirección, coordenadas de landmarks— que no permiten la identificación de personas. En consecuencia, el sistema cumple con los principios de minimización de datos y privacidad por diseño establecidos en el Reglamento General de Protección de Datos \citep{rgpd2016}.
 
@@ -395,7 +397,7 @@ Las bibliotecas utilizadas en el desarrollo del sistema se distribuyen bajo lice
 
 \section{Estructura del documento}
 
-El presente documento se organiza en seis capítulos, cuyo contenido se describe a continuación.
+El presente documento se organiza en cinco capítulos, cuyo contenido se describe a continuación.
 
 El \textbf{Capítulo 1} (este capítulo) introduce el trabajo, detalla la motivación que lo origina, los objetivos que persigue, el marco regulador aplicable y la organización del documento.
 
@@ -405,9 +407,7 @@ El \textbf{Capítulo 3} describe el diseño y el desarrollo del sistema. Se deta
 
 El \textbf{Capítulo 4} presenta la experimentación y los resultados. Se describe la metodología de evaluación diseñada, las métricas empleadas y los resultados obtenidos, tanto para la detección del gesto como para la precisión del grounding espacial. Se recogen también los hallazgos adicionales derivados de la evaluación, incluyendo las limitaciones identificadas.
 
-El \textbf{Capítulo 5} analiza el entorno socioeconómico del proyecto, incluyendo el impacto potencial del sistema, la planificación temporal del desarrollo y el presupuesto estimado.
-
-El \textbf{Capítulo 6} recoge las conclusiones del trabajo y propone líneas de trabajo futuro que permitirían extender o mejorar el sistema desarrollado.
+El \textbf{Capítulo 5} recoge las conclusiones del trabajo y propone líneas de trabajo futuro que permitirían extender o mejorar el sistema desarrollado.
 
 Finalmente, se incluye la \textbf{Bibliografía} con todas las referencias citadas a lo largo del documento.
 
@@ -565,6 +565,14 @@ Dado que OpenCV.js gestiona la memoria de forma manual mediante objetos \texttt{
 
 Las coordenadas del plano rectificado se normalizan al intervalo $[0,1]^2$, con el origen en la esquina superior izquierda y los ejes $x$ e $y$ creciendo hacia la derecha y hacia abajo respectivamente. Sobre este espacio normalizado se define una rejilla $3 \times 3$ que divide la superficie en nueve regiones semánticas, denominadas combinando la posición vertical (superior, medio, inferior) y la horizontal (izquierda, centro, derecha). La clasificación de un punto $(x_n, y_n)$ en su región es directa: la columna viene dada por $\lfloor 3\,x_n \rfloor$ y la fila por $\lfloor 3\,y_n \rfloor$.
 
+La Figura~\ref{fig:fase1_homografia} muestra el resultado completo de la Fase~1 en ejecución real. La vista izquierda recoge la imagen de cámara con la pizarra en perspectiva oblicua; la vista derecha muestra el plano rectificado tras completar la calibración de los cuatro vértices, con la rejilla $3\times 3$ de regiones semánticas superpuesta.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{imagenes/fase_uno_homografia.png}
+\caption{\label{fig:fase1_homografia}Fase~1 en ejecución. Izquierda: vista de cámara con la pizarra capturada en perspectiva oblicua. Derecha: vista rectificada obtenida tras la calibración manual de los cuatro vértices, con la rejilla $3\times 3$ de regiones semánticas superpuesta sobre el plano normalizado $[0,1]^2$.}
+\end{figure}
+
 \section{Fase 2: Estimación corporal}
 
 \subsection{Integración de MediaPipe en el navegador}
@@ -582,6 +590,7 @@ BlazePose \citep{bazarevsky2020blazepose} proporciona 33 \textit{landmarks} en c
 MediaPipe Hands \citep{zhang2020mediapipe} proporciona 21 \textit{landmarks} por mano en coordenadas normalizadas. El sistema emplea principalmente la muñeca (landmark 0) y la punta del índice (landmark 8), que definen el vector de dirección distal del gesto. El modelo clasifica cada mano como \textit{Left} o \textit{Right} en coordenadas de imagen espejo —convención habitual de webcam—, de modo que la etiqueta \textit{Left} corresponde a la mano derecha real del usuario. El módulo \texttt{extractDeicticLandmarks()} corrige este \textit{flip} automáticamente antes de entregar los \textit{landmarks} al resto del sistema.
 
 \subsection{Estabilidad temporal de los landmarks}
+\label{sec:estabilidad}
 
 Antes de diseñar la heurística de pointing, se realizó un estudio de caracterización de la calidad de los \textit{landmarks} de BlazePose en función de la distancia y las condiciones de iluminación. Se registraron siete sesiones variando la distancia sujeto--cámara (0{,}8\,m, 1{,}8\,m, 2{,}8\,m y 3{,}8\,m) y las condiciones de iluminación (directa intensa y ambiente normal), midiendo el jitter medio en ventana de 30 \textit{frames} y el porcentaje de visibilidad de cada \textit{landmark}. Los resultados se recogen en las Tablas~\ref{tab:jitter} y~\ref{tab:visibilidad}, y se visualizan en la Figura~\ref{fig:fase2_landmarks}.
 
@@ -811,7 +820,13 @@ La carga de los modelos MediaPipe se realiza de forma diferida al activar la cá
 \chapter{Evaluación experimental}
 \label{cap:evaluacion}
 
-Este capítulo describe los experimentos realizados para validar el sistema desarrollado a lo largo de las cinco fases. La evaluación se estructura en tres niveles de granularidad creciente: la detección binaria del gesto de \textit{pointing} (Sección~\ref{sec:eval_heuristica}), la precisión espacial del \textit{grounding} sobre la superficie calibrada (Sección~\ref{sec:eval_fingerprint}) y la comparación con modelos de visión-lenguaje (\textit{VLLM}) comerciales y de código abierto como línea base de referencia (Sección~\ref{sec:eval_vllm}). Los conjuntos de datos de evaluación de la Fase~2 ---utilizados como guía de diseño de la heurística y no como evaluación del sistema completo--- se discutieron en la Sección~\ref{sec:fusion}.
+Este capítulo describe los experimentos realizados para validar el sistema desarrollado a lo largo de las cinco fases. La evaluación se estructura en tres niveles de granularidad creciente: la detección binaria del gesto de \textit{pointing} (Sección~\ref{sec:eval_heuristica}), la precisión espacial del \textit{grounding} sobre la superficie calibrada (Sección~\ref{sec:eval_fingerprint}) y la comparación con modelos de visión-lenguaje (\textit{VLLM}) comerciales y de código abierto como línea base de referencia (Sección~\ref{sec:eval_vllm}). Los conjuntos de datos de evaluación de la Fase~2 ---utilizados como guía de diseño de la heurística y no como evaluación del sistema completo--- se discutieron en la Sección~\ref{sec:estabilidad}.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth]{imagenes/fase_cinco_evaluacion.png}
+  \caption{\label{fig:fase5_evaluacion}Interfaz del sistema completo durante una sesión de evaluación. Panel izquierdo (\textit{vista de cámara}): imagen especular de la cámara con el rayo de \textit{pointing} (línea verde) proyectado desde el brazo del usuario hasta la superficie calibrada. Panel derecho (\textit{vista tablero}): plano rectificado con la rejilla 3$\times$3 y la región de impacto resaltada en tiempo real. La barra de progreso inferior refleja el avance del contador de \textit{dwell}.}
+\end{figure}
 
 \section{Protocolo de evaluación}
 \label{sec:eval_protocolo}
@@ -884,11 +899,47 @@ E6 & 23 &  7 & 19 &  2 & \cellcolor{yellow!35}82{,}4\,\% & \cellcolor{green!25}9
 
 \textbf{E2 --- umbral binario de extensión.} Introducir el rechazo $\theta < 30°$ genera el efecto opuesto: la precisión sube al 65{,}4\,\% pero el \textit{recall} cae al 53{,}1\,\%, ya que gestos válidos con el codo ligeramente flexionado quedan descartados. El F1 (58{,}6\,\%) es inferior al de E1, lo que muestra que un criterio binario de extensión penaliza más de lo que protege.
 
-\textbf{E3 --- validación biomecánica gradual.} Reemplazar el umbral binario por \texttt{extScore} y añadir las restricciones de orientación y alcance produce el salto de calidad más pronunciado del estudio: la precisión sube al 84{,}0\,\% (de 20 falsos positivos a sólo 4) y la dirección correcta alcanza el 76{,}2\,\% de los TP. Los diez falsos negativos restantes corresponden principalmente a imágenes con el brazo en posición muy lateral o con la muñeca proyectada cerca del hombro (\texttt{muneca\_muy\_cerca}), caso conocido de estimación errónea de BlazePose documentado en la Sección~\ref{sec:fusion}.
+\textbf{E3 --- validación biomecánica gradual.} Reemplazar el umbral binario por \texttt{extScore} y añadir las restricciones de orientación y alcance produce el salto de calidad más pronunciado del estudio: la precisión sube al 84{,}0\,\% (de 20 falsos positivos a sólo 4) y la dirección correcta alcanza el 76{,}2\,\% de los TP. Los diez falsos negativos restantes corresponden principalmente a imágenes con el brazo en posición muy lateral o con la muñeca proyectada cerca del hombro (\texttt{muneca\_muy\_cerca}), caso conocido de estimación errónea de BlazePose documentado en la Sección~\ref{sec:estabilidad}.
 
 \textbf{E4 y E5 --- mecanismos temporales.} La histéresis asimétrica (E4) y la ventana de estabilidad de \textit{Hands} (E5) no afectan imágenes estáticas porque ambas dependen del estado acumulado entre \textit{frames} consecutivos. La equivalencia numérica exacta E3\,=\,E4\,=\,E5 en TP/FP/FN/TN constituye una validación implícita de la implementación del evaluador de ablación: el modo de imagen individual desactiva correctamente la acumulación de estado.
 
 \textbf{E6 --- pesos dinámicos.} Incorporar la redistribución de pesos según la fiabilidad de \textit{Hands} mejora todos los indicadores: accuracy 82{,}4\,\%, precisión 92{,}0\,\% y F1 83{,}6\,\%; la dirección correcta alcanza el 91{,}3\,\%. Dado que cinco imágenes con etiqueta ambigua recibieron \textit{ground truth} revisado respecto a E3--E5, la comparación directa es parcialmente heterogénea. \textbf{La etapa E3 establece la validación biomecánica base del sistema; las etapas E4--E6 añaden robustez temporal para el funcionamiento en vídeo a tiempo real.}
+
+\begin{figure}[htbp]
+  \centering
+  \begin{subfigure}[t]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{imagenes/evaluacion_E1.png}
+    \caption{E1: sin validación biomecánica. \textit{Recall} 100\,\%, precisión 60{,}8\,\%. Cualquier posición de brazo activa el detector.}
+    \label{fig:ablacion_e1}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[t]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{imagenes/evaluacion_E6.png}
+    \caption{E6: pesos dinámicos + validación completa. Precisión 92{,}0\,\%, F1 83{,}6\,\%. Solo los gestos genuinos superan el validador.}
+    \label{fig:ablacion_e6}
+  \end{subfigure}
+  \caption{\label{fig:ablacion_comparativa}Comparativa de salida del sistema sobre la misma imagen en las etapas extremas del estudio de ablación. Los vectores articulares, el rayo de \textit{pointing} y el panel de confianza (esquina superior derecha) ilustran el efecto acumulado de los componentes de validación incorporados en cada etapa.}
+\end{figure}
+
+\begin{figure}[htbp]
+  \centering
+  \begin{subfigure}[t]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{imagenes/evaluacion_E1_dos.png}
+    \caption{E1: brazo colgando lateralmente detectado como gesto (falso positivo). La ausencia de restricción de orientación permite que cualquier extensión de brazo active el detector.}
+    \label{fig:ablacion_e1_fp}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[t]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{imagenes/evaluacion_E6_dos.png}
+    \caption{E6: mismo caso rechazado correctamente (verdadero negativo). La restricción de orientación global (${\geq}30°$ respecto a la vertical descendente) descarta el brazo colgante.}
+    \label{fig:ablacion_e6_tn}
+  \end{subfigure}
+  \caption{\label{fig:ablacion_fp}Caso de falso positivo característico de E1 corregido en E6. El gesto de ``brazo colgante'' presenta un ángulo de extensión $\approx 0°$ (brazo extendido) pero apunta verticalmente hacia abajo, condición que E6 rechaza mediante la restricción \texttt{MIN\_ANGLE\_FROM\_DOWN}.}
+\end{figure}
 
 \section{Evaluación de precisión espacial (\textit{fingerprint})}
 \label{sec:eval_fingerprint}
@@ -1026,7 +1077,7 @@ El sistema deíctico desarrollado en este trabajo supera a todos los modelos eva
 
 Los experimentos realizados permiten extraer cuatro conclusiones principales sobre las capacidades y limitaciones del sistema.
 
-\textbf{Robustez de la heurística.} El estudio de ablación sobre 51~imágenes estáticas muestra una progresión clara a lo largo de las seis etapas. La etapa E1, sin ningún umbral de validación, obtiene \textit{recall} del 100\,\% pero acumula 20~falsos positivos (precisión 60{,}8\,\%), lo que confirma que el vector proximal por sí solo no discrimina gestos de pointing de posturas de reposo. La introducción de un umbral binario de extensión en E2 resulta contraproducente: el F1 cae al 58{,}6\,\% porque los gestos con el codo parcialmente flexionado quedan erróneamente rechazados. El salto de calidad más relevante se produce en E3, donde la sustitución del umbral binario por \texttt{extScore} y la incorporación de las restricciones de orientación y alcance reducen los falsos positivos de 20 a~4, elevando la precisión al 84{,}0\,\% y la dirección correcta al 76{,}2\,\% de los TP. Las etapas E4 y E5 son numéricamente idénticas a E3 sobre imágenes estáticas, validando que la histéresis y la ventana de estabilidad de \textit{Hands} son mecanismos puramente temporales. La etapa E6, con pesos dinámicos activos, alcanza precisión del 92{,}0\,\%, F1 del 83{,}6\,\% y dirección correcta del 91{,}3\,\%. Los falsos negativos residuales en E3--E6 corresponden mayoritariamente a \texttt{muneca\_muy\_cerca}, artefacto conocido del estimador de Pose cuando la muñeca se proyecta cerca del hombro (Sección~\ref{sec:fusion}), y no a un fallo de la heurística en sí.
+\textbf{Robustez de la heurística.} El estudio de ablación sobre 51~imágenes estáticas muestra una progresión clara a lo largo de las seis etapas. La etapa E1, sin ningún umbral de validación, obtiene \textit{recall} del 100\,\% pero acumula 20~falsos positivos (precisión 60{,}8\,\%), lo que confirma que el vector proximal por sí solo no discrimina gestos de pointing de posturas de reposo. La introducción de un umbral binario de extensión en E2 resulta contraproducente: el F1 cae al 58{,}6\,\% porque los gestos con el codo parcialmente flexionado quedan erróneamente rechazados. El salto de calidad más relevante se produce en E3, donde la sustitución del umbral binario por \texttt{extScore} y la incorporación de las restricciones de orientación y alcance reducen los falsos positivos de 20 a~4, elevando la precisión al 84{,}0\,\% y la dirección correcta al 76{,}2\,\% de los TP. Las etapas E4 y E5 son numéricamente idénticas a E3 sobre imágenes estáticas, validando que la histéresis y la ventana de estabilidad de \textit{Hands} son mecanismos puramente temporales. La etapa E6, con pesos dinámicos activos, alcanza precisión del 92{,}0\,\%, F1 del 83{,}6\,\% y dirección correcta del 91{,}3\,\%. Los falsos negativos residuales en E3--E6 corresponden mayoritariamente a \texttt{muneca\_muy\_cerca}, artefacto conocido del estimador de Pose cuando la muñeca se proyecta cerca del hombro (Sección~\ref{sec:estabilidad}), y no a un fallo de la heurística en sí.
 
 \textbf{Dependencia de la geometría de vista.} La precisión espacial varía significativamente con la orientación del usuario respecto a la cámara: 100\,\% en frontal, 79--81\,\% en laterales, 78{,}7\,\% a 45° y 76{,}3\,\% en espaldas. Esta degradación es inherente a cualquier sistema monocular que utilice \textit{landmarks} 2D sin reconstrucción 3D: la proyección perspectiva introduce ambigüedad en la profundidad que no puede resolverse sin cámara adicional o sensor de profundidad. Para el caso de uso principal ---un presentador frente a la pizarra en vista frontal o semilateral--- el sistema ofrece una precisión operativa superior al 82\,\%.
 
