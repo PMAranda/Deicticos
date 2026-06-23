@@ -1,0 +1,478 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:      #0f1117;
+  --surface: #161625;
+  --border:  #2a2a3e;
+  --text:    #d0d0e0;
+  --muted:   #4a4a6e;
+  --blue:    #9ab4f5;
+  --green:   #4DFF88;
+  --amber:   #FFD700;
+  --red:     #FF4D4D;
+
+  /* Colores por zona de la rejilla */
+  --zone-sup: #4f8ef7;
+  --zone-med: #3dba6f;
+  --zone-inf: #f5a623;
+}
+
+html, body {
+  height: 100%;
+  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0.55rem 1.1rem;
+  flex-shrink: 0;
+}
+
+.header-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.brand-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #e8e8ff;
+  letter-spacing: -0.01em;
+}
+
+.brand-sub {
+  font-size: 0.66rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.status-msg {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.status-msg.error { color: var(--red); }
+
+.btn {
+  padding: 0.32rem 0.8rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid;
+  transition: background 0.15s, opacity 0.15s;
+  white-space: nowrap;
+}
+.btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.btn-primary {
+  background: #1a2e4a;
+  border-color: #2a4a7a;
+  color: var(--blue);
+}
+.btn-primary:hover:not(:disabled) { background: #223a5e; }
+
+.btn-ghost {
+  background: transparent;
+  border-color: #333;
+  color: #666;
+}
+.btn-ghost:hover:not(:disabled) { border-color: #555; color: #999; }
+
+/* ── Badges ──────────────────────────────────────────────────────────────── */
+.badges-bar {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  padding: 0.4rem 1.1rem;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #555;
+}
+.badge-warn   { border-color: #5a4500; color: var(--amber); background: #1a1400; }
+.badge-ok     { border-color: #1e4a1e; color: var(--green); background: #0d1a0d; }
+.badge-off    { color: #444; }
+.badge-active { border-color: #1e3a5e; color: var(--blue); background: #0d1525; }
+
+/* ── Layout principal ────────────────────────────────────────────────────── */
+.layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 220px;
+  gap: 0;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ── Panel izquierdo: cámara ────────────────────────────────────────────── */
+.panel-left {
+  display: flex;
+  flex-direction: column;
+  padding: 0.8rem;
+  overflow: hidden;
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+}
+
+.panel-label {
+  font-size: 0.68rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.4rem;
+  flex-shrink: 0;
+}
+
+.canvas-wrap {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
+
+#rawCanvas {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #0d0d1a;
+  object-fit: contain;
+}
+
+.calib-hint {
+  position: absolute;
+  bottom: 0.6rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(26, 20, 0, 0.92);
+  border: 1px solid var(--amber);
+  color: var(--amber);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.35rem 0.8rem;
+  border-radius: 6px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* ── Panel derecho ───────────────────────────────────────────────────────── */
+.panel-right {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.8rem 0.75rem;
+  overflow-y: auto;
+  background: var(--surface);
+}
+
+/* ── Región señalada ─────────────────────────────────────────────────────── */
+.region-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  padding: 1rem 1.1rem 0.9rem;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+  min-height: 110px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  transition: border-color 0.3s;
+}
+
+.region-card.active-sup { border-color: var(--zone-sup); }
+.region-card.active-med { border-color: var(--zone-med); }
+.region-card.active-inf { border-color: var(--zone-inf); }
+
+.region-eyebrow {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  margin-bottom: 0.3rem;
+}
+
+.region-row-label {
+  font-size: 2.2rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: var(--muted);
+  transition: color 0.3s;
+}
+
+.region-row-label.color-sup { color: var(--zone-sup); }
+.region-row-label.color-med { color: var(--zone-med); }
+.region-row-label.color-inf { color: var(--zone-inf); }
+
+.region-col-label {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-top: 0.1rem;
+  transition: color 0.3s;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.region-col-label.color-sup { color: color-mix(in srgb, var(--zone-sup) 70%, white); }
+.region-col-label.color-med { color: color-mix(in srgb, var(--zone-med) 70%, white); }
+.region-col-label.color-inf { color: color-mix(in srgb, var(--zone-inf) 70%, white); }
+
+.region-no-calib {
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-top: 0.4rem;
+}
+
+/* ── Rejilla mini ────────────────────────────────────────────────────────── */
+.grid-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  padding: 0.7rem;
+  flex-shrink: 0;
+}
+
+.card-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+
+.mini-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+}
+
+.cell {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  padding: 0.35rem 0.2rem;
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-align: center;
+  color: var(--muted);
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+  letter-spacing: 0.02em;
+}
+
+.cell.active-sup {
+  background: #0d1a2e;
+  border-color: var(--zone-sup);
+  color: var(--zone-sup);
+  box-shadow: 0 0 6px rgba(79, 142, 247, 0.3);
+}
+.cell.active-med {
+  background: #0d1a0d;
+  border-color: var(--zone-med);
+  color: var(--zone-med);
+  box-shadow: 0 0 6px rgba(61, 186, 111, 0.3);
+}
+.cell.active-inf {
+  background: #1e1400;
+  border-color: var(--zone-inf);
+  color: var(--zone-inf);
+  box-shadow: 0 0 6px rgba(245, 166, 35, 0.3);
+}
+
+/* ── Coordenadas ─────────────────────────────────────────────────────────── */
+.coords-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  padding: 0.7rem;
+  flex-shrink: 0;
+}
+
+.coord-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+.coord-axis {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--blue);
+  width: 12px;
+  flex-shrink: 0;
+}
+
+.coord-track {
+  flex: 1;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.coord-fill {
+  height: 100%;
+  background: var(--blue);
+  border-radius: 3px;
+  width: 0%;
+  transition: width 0.1s;
+}
+
+.coord-val {
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  width: 44px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.coord-px {
+  font-size: 0.65rem;
+  color: var(--muted);
+  margin-top: 0.4rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Métricas de pointing ────────────────────────────────────────────────── */
+.metrics-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  padding: 0.7rem;
+  flex-shrink: 0;
+}
+
+.metric-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+.metric-row:first-of-type { margin-top: 0; }
+
+.metric-key {
+  font-size: 0.68rem;
+  color: var(--muted);
+  width: 90px;
+  flex-shrink: 0;
+}
+
+.conf-track {
+  flex: 1;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.conf-fill {
+  height: 100%;
+  border-radius: 3px;
+  width: 0%;
+  background: var(--green);
+  transition: width 0.15s, background 0.3s;
+}
+
+.metric-val {
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  text-align: right;
+  min-width: 60px;
+  flex-shrink: 0;
+}
+
+.btn-video {
+  background: #1a2e1a;
+  border-color: #3a6a3a;
+  color: #7ef07e;
+}
+.btn-video:hover:not(:disabled) { background: #223a22; }
+
+/* ── Controles de vídeo en barra de badges ───────────────────────────────── */
+.video-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+}
+
+.btn-icon {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  line-height: 1;
+  transition: background 0.15s;
+}
+.btn-icon:hover { background: var(--surface); }
+
+.video-filename {
+  font-size: 0.68rem;
+  color: #7ef07e;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────────────────── */
+.panel-right::-webkit-scrollbar { width: 4px; }
+.panel-right::-webkit-scrollbar-track { background: transparent; }
+.panel-right::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ── Responsive mínimo ───────────────────────────────────────────────────── */
+@media (max-width: 860px) {
+  .layout { grid-template-columns: 1fr; grid-template-rows: 1fr auto; overflow: auto; }
+  .panel-left { min-height: 50vh; overflow: visible; }
+  .panel-right { overflow: visible; }
+  html, body { overflow: auto; }
+}

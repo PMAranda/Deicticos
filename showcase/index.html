@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Showcase — Módulo de Gestos Deícticos</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ── Header ──────────────────────────────────────────────────────────── -->
+  <header>
+    <div class="header-brand">
+      <span class="brand-title">Gestos Deícticos</span>
+      <span class="brand-sub">Reconocimiento en Tiempo Real · TFM UC3M</span>
+    </div>
+    <div class="header-controls">
+      <span id="status" class="status-msg">Cargando modelos…</span>
+      <button id="videoBtn"     class="btn btn-video"   disabled>↑ Cargar vídeo</button>
+      <button id="calibrateBtn" class="btn btn-primary" disabled>Calibrar pizarra</button>
+      <button id="resetBtn"     class="btn btn-ghost"   disabled>Resetear</button>
+    </div>
+    <input type="file" id="videoInput" accept="video/*" style="display:none" />
+  </header>
+
+  <!-- ── Badges ──────────────────────────────────────────────────────────── -->
+  <div class="badges-bar">
+    <span id="badgeFps"      class="badge">— FPS</span>
+    <span id="badgeSource"   class="badge badge-warn">Sin fuente</span>
+    <span id="badgeTracking" class="badge badge-off">Sin detección</span>
+    <span id="badgePointing" class="badge badge-off">Sin gesto</span>
+    <span id="badgeCalib"    class="badge badge-warn">Sin calibrar</span>
+    <span id="badgeHands"    class="badge badge-off">Pose only</span>
+    <!-- Controles de vídeo: solo visibles en modo vídeo -->
+    <div id="videoControls" class="video-controls" style="display:none">
+      <button id="playPauseBtn" class="btn-icon" title="Play/Pausa">⏸</button>
+      <span id="videoFileName" class="video-filename"></span>
+    </div>
+  </div>
+
+  <!-- ── Layout principal ────────────────────────────────────────────────── -->
+  <main class="layout">
+
+    <!-- Izquierda: cámara con overlays AR -->
+    <section class="panel-left">
+      <div class="panel-label">Vista cámara</div>
+      <div class="canvas-wrap">
+        <canvas id="rawCanvas"></canvas>
+        <div id="calibHint" class="calib-hint" style="display:none">
+          Clic en las 4 esquinas de la pizarra: ↖ ↗ ↘ ↙
+        </div>
+      </div>
+    </section>
+
+    <!-- Derecha: región + coordenadas -->
+    <aside class="panel-right">
+
+      <!-- Región señalada -->
+      <div class="region-card" id="regionCard">
+        <div class="region-eyebrow">Región señalada</div>
+        <div class="region-row-label" id="regionRowLabel">—</div>
+        <div class="region-col-label" id="regionColLabel"></div>
+        <div class="region-no-calib" id="regionNoCalib">
+          Calibra la pizarra para ver la región
+        </div>
+      </div>
+
+      <!-- Rejilla 3×3 visual -->
+      <div class="grid-card">
+        <div class="card-label">Rejilla 3×3</div>
+        <div class="mini-grid" id="miniGrid">
+          <div class="cell" data-row="0" data-col="0">Sup·Izq</div>
+          <div class="cell" data-row="0" data-col="1">Sup·Cen</div>
+          <div class="cell" data-row="0" data-col="2">Sup·Der</div>
+          <div class="cell" data-row="1" data-col="0">Med·Izq</div>
+          <div class="cell" data-row="1" data-col="1">Med·Cen</div>
+          <div class="cell" data-row="1" data-col="2">Med·Der</div>
+          <div class="cell" data-row="2" data-col="0">Inf·Izq</div>
+          <div class="cell" data-row="2" data-col="1">Inf·Cen</div>
+          <div class="cell" data-row="2" data-col="2">Inf·Der</div>
+        </div>
+      </div>
+
+      <!-- Coordenadas normalizadas -->
+      <div class="coords-card" id="coordsCard">
+        <div class="card-label">Coordenadas normalizadas [0,1]²</div>
+        <div class="coord-row">
+          <span class="coord-axis">X</span>
+          <div class="coord-track"><div class="coord-fill" id="fillX"></div></div>
+          <span class="coord-val" id="valX">—</span>
+        </div>
+        <div class="coord-row">
+          <span class="coord-axis">Y</span>
+          <div class="coord-track"><div class="coord-fill" id="fillY"></div></div>
+          <span class="coord-val" id="valY">—</span>
+        </div>
+        <div class="coord-px" id="coordPx"></div>
+      </div>
+
+      <!-- Métricas del pipeline -->
+      <div class="metrics-card">
+        <div class="card-label">Pipeline de pointing</div>
+        <div class="metric-row">
+          <span class="metric-key">Confianza</span>
+          <div class="conf-track"><div class="conf-fill" id="confFill"></div></div>
+          <span class="metric-val" id="valConf">—</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-key">Modo fusión</span>
+          <span class="metric-val" id="valMode">—</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-key">Brazo activo</span>
+          <span class="metric-val" id="valSide">—</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-key">Extensión codo</span>
+          <span class="metric-val" id="valExt">—</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-key">Dirección (θ)</span>
+          <span class="metric-val" id="valAngle">—</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-key">Razón</span>
+          <span class="metric-val" id="valReason">—</span>
+        </div>
+      </div>
+
+    </aside>
+  </main>
+
+  <video id="video" playsinline muted style="display:none"></video>
+
+  <!-- OpenCV.js bootstrap — patrón estándar del proyecto -->
+  <script>
+    var Module = {
+      onRuntimeInitialized: function () {
+        window.cvReady = true;
+        window.cv = cv;
+        window.Module = undefined;
+        delete window.Module;
+        window.dispatchEvent(new Event('opencv-ready'));
+      }
+    };
+  </script>
+  <script defer src="https://docs.opencv.org/4.8.0/opencv.js"
+          onerror="document.getElementById('status').textContent = 'Error: no se pudo cargar OpenCV.js (revisa la conexión)'">
+  </script>
+  <script type="module" src="main.js"></script>
+</body>
+</html>
