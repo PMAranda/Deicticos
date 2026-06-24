@@ -1,0 +1,18 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="nep" cx="38%" cy="34%" r="78%">
+      <stop offset="0%" stop-color="#6f9cf0"/>
+      <stop offset="55%" stop-color="#3a5fc8"/>
+      <stop offset="100%" stop-color="#1d2f86"/>
+    </radialGradient>
+    <clipPath id="nc"><circle cx="50" cy="50" r="42"/></clipPath>
+  </defs>
+  <circle cx="50" cy="50" r="42" fill="url(#nep)"/>
+  <g clip-path="url(#nc)">
+    <ellipse cx="58" cy="56" rx="9" ry="6" fill="#1b2a6b" opacity="0.7"/>
+    <g stroke="#9fb8f5" stroke-width="2.5" fill="none" opacity="0.3">
+      <path d="M16 42 q34 -5 68 0"/>
+      <path d="M16 60 q34 5 68 0"/>
+    </g>
+  </g>
+</svg>

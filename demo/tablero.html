@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tablero — Panel temático</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --paper: #0b0b0c; --surface: #131315; --ink: #ecebe6; --ink-2: #8c8b86;
+      --ink-3: #5a5a5d; --rule: #222225; --rule-strong: #3a3a3e; --signal: #d9a441;
+      --sans: 'IBM Plex Sans', system-ui, sans-serif;
+      --mono: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
+    }
+    html, body { height: 100%; }
+    body {
+      font-family: var(--sans); background: var(--paper); color: var(--ink);
+      display: flex; flex-direction: column; overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .tboard-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.9rem 1.4rem; border-bottom: 1px solid var(--rule); flex-shrink: 0;
+    }
+    .tboard-head .title { font-size: 1.1rem; font-weight: 600; letter-spacing: -0.01em; }
+    .tboard-head .title small {
+      display: block; font-family: var(--mono); font-size: 0.6rem; font-weight: 500;
+      text-transform: uppercase; letter-spacing: 0.14em; color: var(--signal); margin-bottom: 2px;
+    }
+    .fs-btn {
+      font-family: var(--sans); font-size: 0.78rem; font-weight: 600; cursor: pointer;
+      background: transparent; color: var(--ink-2); border: 1px solid var(--rule-strong);
+      padding: 0.4rem 0.9rem; transition: color 0.14s, border-color 0.14s;
+    }
+    .fs-btn:hover { color: var(--ink); border-color: var(--ink-2); }
+
+    .board {
+      flex: 1; display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      gap: 6px; padding: 6px; min-height: 0;
+    }
+
+    .tcell {
+      position: relative; border: 1px solid var(--rule); background: var(--surface);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 0.5rem; padding: 1rem; text-align: center; overflow: hidden;
+      transition: border-color 0.2s, background 0.2s, transform 0.2s, box-shadow 0.2s;
+    }
+    .tcell .ticon  { width: clamp(48px, 11vw, 120px); height: clamp(48px, 11vw, 120px); object-fit: contain; opacity: 0.62; transition: opacity 0.2s, transform 0.2s; }
+    .tcell .ttitle { font-size: clamp(0.9rem, 2vw, 1.5rem); font-weight: 600; letter-spacing: -0.01em; color: var(--ink-2); transition: color 0.2s; }
+    .tcell .tbody  {
+      font-size: clamp(0.7rem, 1.2vw, 0.95rem); color: var(--ink-2); line-height: 1.5;
+      max-width: 28ch; max-height: 0; opacity: 0; overflow: hidden;
+      transition: max-height 0.3s ease, opacity 0.3s ease;
+    }
+    .tcell .tregion {
+      position: absolute; top: 0.5rem; left: 0.6rem; font-family: var(--mono);
+      font-size: 0.56rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3);
+    }
+
+    /* Región apuntada en vivo (antes de confirmar) */
+    .tcell.hot { border-color: var(--signal); background: rgba(217,164,65,0.06); }
+    .tcell.hot .ticon { opacity: 0.9; }
+
+    /* Región confirmada */
+    .tcell.active {
+      border-color: var(--signal); background: rgba(217,164,65,0.13);
+      box-shadow: inset 0 0 0 2px var(--signal), 0 0 30px rgba(217,164,65,0.15);
+      transform: scale(1.01); z-index: 1;
+      animation: pop 0.3s ease;
+    }
+    .tcell.active .ticon  { opacity: 1; transform: scale(1.06); }
+    .tcell.active .ttitle { color: var(--signal); }
+    .tcell.active .tbody  { max-height: 9rem; opacity: 1; margin-top: 0.2rem; }
+    @keyframes pop { 0% { transform: scale(0.98); } 60% { transform: scale(1.03); } 100% { transform: scale(1.01); } }
+
+    .conn-dot {
+      width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3);
+      display: inline-block; margin-right: 0.4rem; vertical-align: middle;
+    }
+    .conn-dot.live { background: var(--signal); box-shadow: 0 0 8px var(--signal); }
+    .conn { font-family: var(--mono); font-size: 0.62rem; color: var(--ink-3); letter-spacing: 0.04em; }
+  </style>
+</head>
+<body>
+
+  <div class="tboard-head">
+    <div class="title"><small>Panel temático · tablero</small>Sistema Solar</div>
+    <div>
+      <span class="conn"><span id="connDot" class="conn-dot"></span><span id="connLbl">esperando consola…</span></span>
+      <button id="fsBtn" class="fs-btn">⛶ Pantalla completa</button>
+    </div>
+  </div>
+
+  <div id="board" class="board"></div>
+
+  <script type="module" src="tablero.js"></script>
+</body>
+</html>

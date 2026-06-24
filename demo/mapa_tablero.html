@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mapamundi — pantalla completa</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --paper: #0b0b0c; --surface: #131315; --ink: #ecebe6; --ink-2: #8c8b86;
+      --ink-3: #5a5a5d; --rule: #222225; --rule-strong: #3a3a3e; --signal: #d9a441;
+      --sans: 'IBM Plex Sans', system-ui, sans-serif;
+      --mono: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
+    }
+    html, body { height: 100%; }
+    body {
+      font-family: var(--sans); background: var(--paper); color: var(--ink);
+      display: flex; flex-direction: column; overflow: hidden; -webkit-font-smoothing: antialiased;
+    }
+    .head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.8rem 1.4rem; border-bottom: 1px solid var(--rule); flex-shrink: 0;
+    }
+    .title { font-size: 1.05rem; font-weight: 600; }
+    .title small {
+      display: block; font-family: var(--mono); font-size: 0.6rem; font-weight: 500;
+      text-transform: uppercase; letter-spacing: 0.14em; color: var(--signal); margin-bottom: 2px;
+    }
+    .right { display: flex; align-items: center; gap: 1rem; }
+    .country {
+      font-family: var(--mono); font-size: 1.1rem; font-weight: 600; color: var(--signal);
+      letter-spacing: 0.02em; min-width: 6ch; text-align: right;
+    }
+    .conn { font-family: var(--mono); font-size: 0.62rem; color: var(--ink-3); letter-spacing: 0.04em; }
+    .conn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); display: inline-block; margin-right: 0.4rem; vertical-align: middle; }
+    .conn-dot.live { background: var(--signal); box-shadow: 0 0 8px var(--signal); }
+    .fs-btn {
+      font-family: var(--sans); font-size: 0.78rem; font-weight: 600; cursor: pointer;
+      background: transparent; color: var(--ink-2); border: 1px solid var(--rule-strong);
+      padding: 0.4rem 0.9rem; transition: color 0.14s, border-color 0.14s;
+    }
+    .fs-btn:hover { color: var(--ink); border-color: var(--ink-2); }
+    .stage { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; padding: 0.5rem; }
+    #map { display: block; max-width: 100%; max-height: 100%; }
+  </style>
+</head>
+<body>
+  <div class="head">
+    <div class="title"><small>Mapamundi interactivo · pantalla</small>Señala un país</div>
+    <div class="right">
+      <span id="country" class="country">—</span>
+      <span class="conn"><span id="connDot" class="conn-dot"></span><span id="connLbl">esperando consola…</span></span>
+      <button id="fsBtn" class="fs-btn">⛶ Pantalla completa</button>
+    </div>
+  </div>
+  <div class="stage"><canvas id="map"></canvas></div>
+
+  <script type="module" src="mapa_tablero.js"></script>
+</body>
+</html>

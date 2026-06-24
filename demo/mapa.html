@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mapamundi interactivo — Gestos Deícticos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --paper: #0b0b0c; --surface: #131315; --ink: #ecebe6; --ink-2: #8c8b86;
+      --ink-3: #5a5a5d; --rule: #222225; --rule-strong: #3a3a3e; --wash: #161618;
+      --signal: #d9a441; --ok: #6db58a; --warn: #d9a441; --info: #7d9cc0; --error: #e0654a;
+      --sans: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+      --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    }
+    html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+    body {
+      font-family: var(--sans); background: var(--paper); color: var(--ink);
+      line-height: 1.5; font-size: 15px; min-height: 100vh;
+      padding: 0 1.5rem 4rem; max-width: 1280px; margin: 0 auto;
+    }
+    a { color: inherit; text-decoration: none; }
+
+    .masthead { border-bottom: 2px solid var(--rule-strong); padding: 1.6rem 0 1.2rem; margin-bottom: 1.4rem; }
+    .back { display: inline-block; font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.04em; color: var(--ink-2); margin-bottom: 1.4rem; transition: color 0.14s; }
+    .back:hover { color: var(--signal); }
+    .head-main { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-2); margin-bottom: 0.9rem; }
+    .head-main .phase-id { color: var(--signal); font-weight: 600; }
+    .head-main .phase-count { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .masthead h1 { font-size: clamp(1.5rem, 4vw, 2.2rem); font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; }
+    .subtitle { margin-top: 0.5rem; font-size: 0.82rem; color: var(--ink-2); }
+
+    .control-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.7rem 1.6rem; background: var(--surface); border: 1px solid var(--rule); padding: 0.8rem 1.1rem; margin-bottom: 0.6rem; }
+    .control-group { display: flex; align-items: center; gap: 0.55rem; }
+    .control-buttons { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-left: auto; }
+    .config-label { font-family: var(--mono); font-size: 0.66rem; color: var(--ink-2); text-transform: uppercase; letter-spacing: 0.08em; white-space: nowrap; }
+    .config-slider { -webkit-appearance: none; appearance: none; width: 140px; height: 3px; background: var(--rule-strong); outline: none; cursor: pointer; }
+    .config-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 13px; height: 13px; background: var(--signal); cursor: pointer; }
+    .config-slider::-moz-range-thumb { width: 13px; height: 13px; background: var(--signal); border: none; cursor: pointer; }
+    .config-value { font-family: var(--mono); font-size: 0.74rem; color: var(--signal); font-variant-numeric: tabular-nums; min-width: 96px; }
+
+    .btn { font-family: var(--sans); padding: 0.45rem 1rem; border: 1px solid var(--rule-strong); background: transparent; color: var(--ink); font-size: 0.8rem; font-weight: 600; letter-spacing: 0.02em; cursor: pointer; white-space: nowrap; transition: background 0.14s, color 0.14s, border-color 0.14s; }
+    .btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .btn-primary { border-color: var(--signal); color: var(--signal); }
+    .btn-primary:hover:not(:disabled) { background: var(--signal); color: var(--paper); }
+    .btn-ghost { color: var(--ink-2); }
+    .btn-ghost:hover:not(:disabled) { color: var(--ink); border-color: var(--ink-2); }
+
+    .status-bar { display: flex; align-items: center; gap: 0.5rem 0.9rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .status { font-family: var(--mono); font-size: 0.76rem; color: var(--ink-2); flex: 1; min-width: 200px; }
+    .status::before { content: '› '; color: var(--signal); }
+    .status.error, .status.error::before { color: var(--error); }
+    .badge { display: inline-flex; align-items: center; font-family: var(--mono); padding: 0.2rem 0.55rem; border: 1px solid var(--rule-strong); background: var(--surface); font-size: 0.7rem; font-weight: 600; letter-spacing: 0.04em; color: var(--ink-3); }
+    .badge-warn { color: var(--warn); border-color: rgba(217,164,65,0.45); background: rgba(217,164,65,0.08); }
+    .badge-ok { color: var(--ok); border-color: rgba(109,181,138,0.45); background: rgba(109,181,138,0.08); }
+    .badge-off { color: var(--ink-3); }
+    .badge-active { color: var(--info); border-color: rgba(125,156,192,0.45); background: rgba(125,156,192,0.08); }
+    .badge-dwell { color: var(--warn); border-color: rgba(217,164,65,0.5); background: rgba(217,164,65,0.10); animation: pulse-dwell 1s ease-in-out infinite; }
+    @keyframes pulse-dwell { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
+
+    .stage { display: grid; grid-template-columns: 1fr 1fr; gap: 1.4rem; align-items: start; }
+    @media (max-width: 980px) { .stage { grid-template-columns: 1fr; } }
+    .col { display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; }
+    #rawCanvas, #mapCanvas { width: 100%; display: block; border: 1px solid var(--rule-strong); background: #000; }
+    .section-label { font-family: var(--mono); font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-2); margin-bottom: 0.2rem; }
+    .canvas-hint { font-family: var(--mono); font-size: 0.7rem; color: var(--ink-3); margin-top: 0.2rem; }
+
+    .dwell-slot { min-height: 30px; }
+    .dwell-bar-wrap { position: relative; height: 28px; background: var(--paper); border: 1px solid var(--rule-strong); overflow: hidden; display: flex; align-items: center; }
+    .dwell-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0%; background: linear-gradient(90deg, rgba(217,164,65,0.35), var(--signal)); transition: width 0.08s linear; }
+    .dwell-bar-label { position: relative; z-index: 1; padding: 0 0.6rem; font-family: var(--mono); font-size: 0.72rem; color: var(--ink); letter-spacing: 0.03em; white-space: nowrap; }
+
+    .country-card { border: 1px solid var(--rule-strong); border-top: 3px solid var(--signal); background: var(--surface); padding: 1.3rem 1.4rem; display: flex; flex-direction: column; gap: 0.4rem; min-height: 110px; justify-content: center; }
+    .country-eyebrow { font-family: var(--mono); font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--signal); }
+    .country-name { font-size: 2rem; font-weight: 600; letter-spacing: -0.02em; color: var(--ink); line-height: 1.05; }
+    .country-name.none { color: var(--ink-3); font-size: 1.2rem; font-weight: 500; }
+    .country-coords { font-family: var(--mono); font-size: 0.72rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body>
+
+  <header class="masthead">
+    <a class="back" href="../guia.html">← Índice</a>
+    <div class="head-main">
+      <span class="phase-id">DEMO / MAPAMUNDI INTERACTIVO</span>
+      <span class="phase-count">SISTEMA</span>
+    </div>
+    <h1>Mapamundi interactivo</h1>
+    <p class="subtitle">Señala un país en el planisferio calibrado y el sistema lo identifica por su geometría de fronteras</p>
+  </header>
+
+  <div class="control-bar">
+    <p id="status" class="status">Cargando modelos…</p>
+    <div class="control-group">
+      <span class="config-label">Confirmación</span>
+      <input type="range" id="dwellSlider" min="0" max="60" value="20" class="config-slider" />
+      <span id="dwellValue" class="config-value">20 f (~0,7 s)</span>
+    </div>
+    <div class="control-buttons">
+      <button id="voiceBtn" class="btn btn-primary">🔊 Voz: ON</button>
+      <a class="btn btn-ghost" href="mapa_tablero.html" target="_blank" rel="noopener">Abrir mapa en grande ↗</a>
+      <button id="calibrateBtn" class="btn btn-primary" disabled>Calibrar mapa</button>
+      <button id="resetBtn"     class="btn btn-ghost"   disabled>Resetear</button>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <div id="calibBadge"    class="badge badge-warn">Sin calibrar</div>
+    <div id="trackingBadge" class="badge badge-off">Sin detección</div>
+    <div id="pointingBadge" class="badge badge-off">Sin gesto</div>
+    <div id="fpsBadge"      class="badge">— FPS</div>
+  </div>
+
+  <div class="stage">
+
+    <section class="col">
+      <h2 class="section-label">Vista cámara · rayo de pointing y confirmación</h2>
+      <canvas id="rawCanvas"></canvas>
+      <div class="dwell-slot">
+        <div id="dwellBarWrap" class="dwell-bar-wrap" style="display:none">
+          <div id="dwellFill" class="dwell-fill"></div>
+          <span id="dwellBarLabel" class="dwell-bar-label">Manteniendo…</span>
+        </div>
+      </div>
+      <p class="canvas-hint">Calibra las 4 esquinas del marco del planisferio (↖ ↗ ↘ ↙). Usa un mapa equirectangular completo.</p>
+    </section>
+
+    <section class="col">
+      <div id="countryCard" class="country-card">
+        <div class="country-eyebrow">País señalado</div>
+        <div id="countryName" class="country-name none">Calibra y señala el mapa</div>
+        <div id="countryCoords" class="country-coords">—</div>
+      </div>
+      <h2 class="section-label" style="margin-top:0.4rem">Mapa de referencia · impacto en vivo</h2>
+      <canvas id="mapCanvas"></canvas>
+    </section>
+
+  </div>
+
+  <video id="video" playsinline muted style="display:none"></video>
+
+  <script>
+    var Module = {
+      onRuntimeInitialized: function () {
+        window.cvReady = true; window.cv = cv;
+        window.Module = undefined; delete window.Module;
+        window.dispatchEvent(new Event('opencv-ready'));
+      }
+    };
+  </script>
+  <script defer src="https://docs.opencv.org/4.8.0/opencv.js"
+          onerror="document.getElementById('status').textContent='Error: OpenCV no disponible. Revisa la conexión o el AdBlock.';document.getElementById('status').classList.add('error');">
+  </script>
+  <script type="module" src="mapa.js"></script>
+
+</body>
+</html>

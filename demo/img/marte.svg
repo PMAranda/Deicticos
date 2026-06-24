@@ -1,0 +1,20 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="mar" cx="38%" cy="34%" r="78%">
+      <stop offset="0%" stop-color="#e88a5a"/>
+      <stop offset="55%" stop-color="#c45a30"/>
+      <stop offset="100%" stop-color="#7d3318"/>
+    </radialGradient>
+    <clipPath id="mrc"><circle cx="50" cy="50" r="42"/></clipPath>
+  </defs>
+  <circle cx="50" cy="50" r="42" fill="url(#mar)"/>
+  <g clip-path="url(#mrc)">
+    <g fill="#92401f" opacity="0.5">
+      <ellipse cx="40" cy="54" rx="12" ry="6"/>
+      <ellipse cx="64" cy="44" rx="8" ry="5"/>
+      <circle cx="52" cy="64" r="4"/>
+    </g>
+    <ellipse cx="50" cy="18" rx="11" ry="5" fill="#f3ece4" opacity="0.85"/>
+    <ellipse cx="50" cy="83" rx="8" ry="3.5" fill="#f3ece4" opacity="0.7"/>
+  </g>
+</svg>
