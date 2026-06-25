@@ -3,56 +3,447 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Deícticos — Infraestructura Geométrica</title>
-  <link rel="stylesheet" href="styles/main.css" />
+  <title>Reconocimiento de Gestos Deícticos — Índice del proyecto</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #0f1117;
+      color: #d0d0e0;
+      min-height: 100vh;
+      padding: 2rem 1.5rem 4rem;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    /* ── Cabecera ─────────────────────────────────────────────────────────── */
+    header {
+      text-align: center;
+      margin-bottom: 3rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid #2a2a3e;
+    }
+
+    header h1 {
+      font-size: 1.7rem;
+      color: #e8e8ff;
+      letter-spacing: 0.02em;
+      margin-bottom: 0.4rem;
+    }
+
+    header .subtitle {
+      font-size: 0.82rem;
+      color: #5050a0;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.75rem;
+    }
+
+    header .meta {
+      font-size: 0.85rem;
+      color: #4a4a70;
+    }
+
+    /* ── Etiqueta de sección ──────────────────────────────────────────────── */
+    .section-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #4a4a6a;
+      padding-left: 0.6rem;
+      border-left: 2px solid #2a2a4a;
+      margin-bottom: 1rem;
+    }
+
+    section { margin-bottom: 2.8rem; }
+
+    /* ── Tarjeta hero ─────────────────────────────────────────────────────── */
+    .card-hero {
+      background: #13131f;
+      border: 1px solid #3a2a5e;
+      border-radius: 12px;
+      padding: 1.8rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 2rem;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s, transform 0.15s;
+    }
+
+    .card-hero:hover { border-color: #6a4aee; transform: translateY(-2px); }
+
+    .card-hero::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #8b5cf6, #ef4444);
+    }
+
+    .hero-text { flex: 1; }
+
+    .card-hero .card-badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #a78bfa;
+      margin-bottom: 0.4rem;
+    }
+
+    .card-hero h2 {
+      font-size: 1.25rem;
+      color: #e8e8ff;
+      margin-bottom: 0.5rem;
+    }
+
+    .card-hero p {
+      font-size: 0.85rem;
+      color: #7070a0;
+      line-height: 1.6;
+      max-width: 560px;
+    }
+
+    .card-hero .card-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.3rem;
+      margin-top: 0.75rem;
+    }
+
+    .card-hero .card-link {
+      flex-shrink: 0;
+      display: inline-block;
+      padding: 0.65rem 1.8rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      text-decoration: none;
+      background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+      color: #fff;
+      transition: opacity 0.15s;
+      white-space: nowrap;
+    }
+
+    .card-hero .card-link:hover { opacity: 0.85; }
+
+    /* ── Grid de tarjetas ─────────────────────────────────────────────────── */
+    .grid {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .grid-5 { grid-template-columns: repeat(5, 1fr); }
+    .grid-4 { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    .grid-2 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+
+    /* ── Tarjeta normal ───────────────────────────────────────────────────── */
+    .card {
+      background: #13131f;
+      border: 1px solid #2a2a3e;
+      border-radius: 10px;
+      padding: 1.1rem 1.2rem 1.3rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+      transition: border-color 0.2s, transform 0.15s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card:hover { border-color: #4a4aaa; transform: translateY(-2px); }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: var(--accent, #4f8ef7);
+      opacity: 0.7;
+    }
+
+    .card-badge {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--accent, #4f8ef7);
+    }
+
+    .card h2 {
+      font-size: 0.95rem;
+      color: #e0e0f8;
+      font-weight: 600;
+    }
+
+    .card p {
+      font-size: 0.8rem;
+      color: #6a6a90;
+      line-height: 1.55;
+      flex: 1;
+    }
+
+    .card-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.3rem;
+      margin-top: 0.15rem;
+    }
+
+    .tag {
+      font-size: 0.66rem;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      background: #1e1e30;
+      color: #5a5a88;
+      border: 1px solid #2a2a40;
+    }
+
+    .card-links { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.7rem; }
+
+    .card-link {
+      display: inline-block;
+      padding: 0.4rem 0.9rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-decoration: none;
+      background: var(--accent, #4f8ef7);
+      color: #fff;
+      transition: opacity 0.15s;
+      align-self: flex-start;
+    }
+    .card-link.secondary {
+      background: transparent;
+      border: 1px solid var(--accent, #4f8ef7);
+      color: var(--accent, #4f8ef7);
+    }
+
+    .card-link:hover { opacity: 0.85; }
+
+    /* ── Colores por sección ──────────────────────────────────────────────── */
+    .f1 { --accent: #4f8ef7; }
+    .f2 { --accent: #10b981; }
+    .f3 { --accent: #f59e0b; }
+    .f4 { --accent: #8b5cf6; }
+    .f5 { --accent: #ec4899; }
+    .ev { --accent: #6366f1; }
+    .demo { --accent: #14b8a6; }
+
+    /* ── Nota de sección ──────────────────────────────────────────────────── */
+    .section-note {
+      font-size: 0.78rem;
+      color: #3a3a5a;
+      margin-bottom: 0.9rem;
+      padding-left: 0.6rem;
+    }
+
+    /* ── Footer ───────────────────────────────────────────────────────────── */
+    footer {
+      text-align: center;
+      font-size: 0.76rem;
+      color: #3a3a5a;
+      margin-top: 3rem;
+      padding-top: 1rem;
+      border-top: 1px solid #1e1e2e;
+    }
+
+    footer code {
+      background: #1a1a2e;
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      color: #6060a0;
+    }
+
+    @media (max-width: 900px) {
+      .grid-5 { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+    }
+
+    @media (max-width: 640px) {
+      .card-hero { flex-direction: column; }
+      .card-hero .card-link { align-self: stretch; text-align: center; }
+    }
+  </style>
 </head>
 <body>
 
-  <header>
-    <h1>Reconocimiento de Gestos Deícticos</h1>
-    <p class="subtitle">Fase 1 — Infraestructura Geométrica Base</p>
-  </header>
+<header>
+  <h1>Reconocimiento de Gestos Deícticos en Tiempo Real</h1>
+  <p class="subtitle">Trabajo de Fin de Máster · Universidad Carlos III de Madrid</p>
+  <p class="meta">Pablo Moreno · 2026 &nbsp;·&nbsp; OpenCV.js + MediaPipe Tasks for Web</p>
+</header>
 
-  <main>
-    <section class="controls">
-      <button id="calibrateBtn">Calibrar</button>
-      <button id="resetBtn" disabled>Reiniciar</button>
-      <p id="status" class="status">Cargando OpenCV…</p>
-    </section>
-
-    <section class="views">
-      <div class="view-container">
-        <h2>Vista cámara</h2>
-        <canvas id="rawCanvas"></canvas>
+<!-- ── Sistema completo ──────────────────────────────────────────────────── -->
+<section>
+  <p class="section-label">Sistema</p>
+  <div class="card-hero">
+    <div class="hero-text">
+      <div class="card-badge">Showcase — Demostración del sistema</div>
+      <h2>Sistema de reconocimiento deíctico en tiempo real</h2>
+      <p>Demostración completa del pipeline integrado: calibración geométrica, estimación corporal, heurística de pointing y grounding espacial sobre tablero. Interfaz de presentación optimizada para evaluación.</p>
+      <div class="card-tags">
+        <span class="tag">OpenCV.js</span>
+        <span class="tag">BlazePose</span>
+        <span class="tag">MediaPipe Hands</span>
+        <span class="tag">Homografía</span>
+        <span class="tag">Rejilla 3×3</span>
       </div>
-      <div class="view-container">
-        <h2>Vista rectificada</h2>
-        <canvas id="rectCanvas"></canvas>
+    </div>
+    <a class="card-link" href="showcase/index.html">Abrir showcase</a>
+  </div>
+</section>
+
+<!-- ── Demostraciones interactivas ───────────────────────────────────────── -->
+<section>
+  <p class="section-label">Demostraciones interactivas</p>
+  <p class="section-note">Casos de uso del sistema completo. Cada una incluye una pantalla proyectable para mostrar en un segundo monitor.</p>
+  <div class="grid grid-2">
+
+    <div class="card demo">
+      <span class="card-badge">Demo · Panel temático</span>
+      <h2>🪐 Panel temático interactivo</h2>
+      <p>Póster 3×3 (Sistema Solar) calibrado. Señalas una zona, se confirma por permanencia y se muestra su ficha con lectura por voz.</p>
+      <div class="card-tags">
+        <span class="tag">Rejilla 3×3</span>
+        <span class="tag">Dwell</span>
+        <span class="tag">Voz</span>
       </div>
-    </section>
+      <div class="card-links">
+        <a class="card-link" href="demo/panel.html">Abrir consola</a>
+        <a class="card-link secondary" href="demo/tablero.html" target="_blank" rel="noopener">Pantalla ↗</a>
+      </div>
+    </div>
 
-    <section class="coords-panel">
-      <div id="coords"></div>
-    </section>
-  </main>
+    <div class="card demo">
+      <span class="card-badge">Demo · Mapamundi</span>
+      <h2>🌍 Mapamundi interactivo</h2>
+      <p>Planisferio equirectangular calibrado. Señalas un país y el sistema lo identifica por su geometría de fronteras (GeoJSON local), con voz.</p>
+      <div class="card-tags">
+        <span class="tag">GeoJSON</span>
+        <span class="tag">Point-in-polygon</span>
+        <span class="tag">Voz</span>
+      </div>
+      <div class="card-links">
+        <a class="card-link" href="demo/mapa.html">Abrir consola</a>
+        <a class="card-link secondary" href="demo/mapa_tablero.html" target="_blank" rel="noopener">Pantalla ↗</a>
+      </div>
+    </div>
 
-  <!-- Video oculto: fuente de frames para OpenCV -->
-  <video id="video" autoplay playsinline muted style="display:none"></video>
+  </div>
+</section>
 
-  <!--
-    OpenCV.js: la variable Module.onRuntimeInitialized se ejecuta cuando
-    el módulo WASM termina de inicializarse, momento en que cv ya es utilizable.
-  -->
-  <script>
-    var Module = {
-      onRuntimeInitialized() {
-        window.dispatchEvent(new Event('opencv-ready'));
-      }
-    };
-  </script>
-  <script async src="https://docs.opencv.org/4.8.0/opencv.js"></script>
+<!-- ── Fases individuales ────────────────────────────────────────────────── -->
+<section>
+  <p class="section-label">Desarrollo progresivo — componentes individuales</p>
+  <p class="section-note">Cada fase puede ejecutarse de forma aislada para analizar su comportamiento por separado.</p>
+  <div class="grid grid-5">
 
-  <script type="module" src="src/main.js"></script>
+    <div class="card f1">
+      <span class="card-badge">Fase 1</span>
+      <h2>Infraestructura geométrica</h2>
+      <p>Calibración de las 4 esquinas del tablero, homografía con OpenCV.js y coordenadas normalizadas.</p>
+      <div class="card-tags">
+        <span class="tag">OpenCV.js</span>
+        <span class="tag">Homografía</span>
+      </div>
+      <a class="card-link" href="fase1/index.html">Abrir fase 1</a>
+    </div>
+
+    <div class="card f2">
+      <span class="card-badge">Fase 2</span>
+      <h2>Estimación corporal</h2>
+      <p>BlazePose (33 landmarks) y MediaPipe Hands (21 landmarks). Esqueleto, estabilidad y jitter en tiempo real.</p>
+      <div class="card-tags">
+        <span class="tag">BlazePose</span>
+        <span class="tag">Jitter</span>
+      </div>
+      <a class="card-link" href="fase2/index.html">Abrir fase 2</a>
+    </div>
+
+    <div class="card f3">
+      <span class="card-badge">Fase 3</span>
+      <h2>Heurística de pointing</h2>
+      <p>Fusión de 4 vectores articulares, validación por cascada binaria y suavizado EMA con histéresis.</p>
+      <div class="card-tags">
+        <span class="tag">Fusión vectorial</span>
+        <span class="tag">EMA</span>
+      </div>
+      <a class="card-link" href="fase3/index.html">Abrir fase 3</a>
+    </div>
+
+    <div class="card f4">
+      <span class="card-badge">Fase 4</span>
+      <h2>Grounding espacial</h2>
+      <p>Proyección del rayo de pointing sobre el tablero calibrado. Clasificación de impacto en rejilla 3×3.</p>
+      <div class="card-tags">
+        <span class="tag">Ray casting</span>
+        <span class="tag">Rejilla 3×3</span>
+      </div>
+      <a class="card-link" href="fase4/index.html">Abrir fase 4</a>
+    </div>
+
+    <div class="card f5">
+      <span class="card-badge">Fase 5</span>
+      <h2>Pipeline integrado</h2>
+      <p>Sistema completo con confirmación por dwell. Configuración de umbrales en tiempo real y exportación de sesión.</p>
+      <div class="card-tags">
+        <span class="tag">Dwell</span>
+        <span class="tag">Configuración</span>
+      </div>
+      <a class="card-link" href="fase5/index.html">Abrir fase 5</a>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── Evaluación ────────────────────────────────────────────────────────── -->
+<section>
+  <p class="section-label">Evaluación experimental</p>
+  <div class="grid grid-3">
+
+    <div class="card ev">
+      <span class="card-badge">Ablación · E1–E6</span>
+      <h2>Estudio de ablación</h2>
+      <p>Evaluación de 6 configuraciones heurísticas sobre 51 imágenes estáticas anotadas manualmente.</p>
+      <div class="card-tags">
+        <span class="tag">51 imágenes</span>
+        <span class="tag">Imágenes estáticas</span>
+      </div>
+      <a class="card-link" href="fase_evaluacion/evaluacion_heuristica/index.html">Abrir herramienta</a>
+    </div>
+
+    <div class="card ev">
+      <span class="card-badge">Fingerprint · 6 escenarios</span>
+      <h2>Precisión espacial</h2>
+      <p>Protocolo guiado con ground truth automático de región. Frontal, espaldas, lateral, 45° y movimiento.</p>
+      <div class="card-tags">
+        <span class="tag">15 k+ frames</span>
+        <span class="tag">GT automático</span>
+      </div>
+      <a class="card-link" href="fase_evaluacion/protocolo.html">Abrir protocolo</a>
+    </div>
+
+    <div class="card ev">
+      <span class="card-badge">Comparación · VLLM</span>
+      <h2>Comparador VLLM</h2>
+      <p>Consulta automática a modelos de visión-lenguaje locales (Ollama). Comparativa de grounding espacial.</p>
+      <div class="card-tags">
+        <span class="tag">Ollama</span>
+        <span class="tag">Qwen · Ministral</span>
+      </div>
+      <a class="card-link" href="fase_evaluacion/comparar_vllm/index.html">Abrir comparador</a>
+    </div>
+
+  </div>
+</section>
+
+<footer>
+  Ejecutar con <code>npm run dev</code> · Requiere HTTPS o localhost para acceder a la cámara
+</footer>
 
 </body>
 </html>

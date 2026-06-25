@@ -28,15 +28,13 @@ fase<N>/
   main.js                      ← orquestador solo con los módulos de esa fase
 ```
 
-`index.html` en la raíz + `src/main.js` es la app integrada que combina todas las fases.
+`index.html` en la raíz es el **índice del proyecto** (enlaza fases, demos, showcase y evaluación). No contiene lógica propia; cada fase/demo se ejecuta de forma aislada.
 
 ## Arquitectura actual
 
 ```
-index.html              # App integrada — carga OpenCV.js, despacha 'opencv-ready'
-styles/main.css
+index.html              # Índice del proyecto (enlaza fases, demos, showcase, evaluación)
 src/
-  main.js               # Orquestador integrado (todas las fases)
   modules/
     homografia/              # Fase 1 — infraestructura geométrica
       camera.js              #   CameraModule — getUserMedia
