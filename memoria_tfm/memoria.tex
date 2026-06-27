@@ -210,7 +210,7 @@ hmargin=3cm
 			\textsl{Trabajo Fin de Máster} \\
 			\bigskip
 		\end{Large}
-		{\Huge ``Reconocimiento de Gestos Deícticos y Referencias Espaciales en Tiempo Real''}\\
+		{\Huge Reconocimiento de Gestos Deícticos y Referencias Espaciales en Tiempo Real}\\
 		\vspace*{0.5cm}
 		\rule{10.5cm}{0.1mm}\\
 		\vspace*{0.9cm}
@@ -253,7 +253,7 @@ La comunicación humana está profundamente ligada al uso del gesto deíctico, e
 
 Este trabajo presenta el diseño e implementación de un sistema de reconocimiento de gestos deícticos en tiempo real que opera íntegramente en el navegador web mediante una cámara RGB estándar, sin necesidad de hardware adicional. El sistema combina MediaPipe Tasks for Web para la estimación de pose corporal y la detección de manos, y OpenCV.js para la calibración geométrica y la transformación homográfica de la superficie de referencia. La detección del gesto de señalado se realiza mediante una heurística jerárquica que emplea MediaPipe Pose como núcleo semántico para determinar si existe intención de pointing y qué brazo realiza el gesto, y MediaPipe Hands para refinar la dirección de forma precisa cuando la estimación manual es estable. El rayo de pointing resultante se proyecta sobre la superficie calibrada mediante homografía, obteniendo coordenadas espaciales normalizadas y clasificando el impacto en regiones semánticas interpretables organizadas en una cuadrícula de tres por tres zonas. El sistema incorpora múltiples mecanismos de estabilización temporal, tales como la histéresis de confianza, el suavizado mediante media móvil exponencial, el debounce en la selección del brazo activo y la estabilización de región, para garantizar una interacción robusta y continua. Finalmente, se presenta una metodología de evaluación experimental con anotación manual de imágenes y vídeos que permite cuantificar tanto la precisión en la detección del gesto como la coherencia del grounding espacial.
 
-\textbf{Palabras clave:} gestos deícticos, pointing, MediaPipe, homografía, estimación de pose corporal, interacción natural, grounding espacial, tiempo real, navegador web, OpenCV.js
+\textbf{Palabras clave:} gestos deícticos, \textit{pointing}, MediaPipe, homografía, estimación de pose corporal, interacción natural, \textit{grounding} espacial, tiempo real, navegador web, OpenCV.js.
 
 \vfill
 \end{abstract}
@@ -269,7 +269,13 @@ Este trabajo presenta el diseño e implementación de un sistema de reconocimien
 \setcounter{page}{5}
 
 % TODO: añadir dedicatoria cuando se decida el texto
-\textit{[Por determinar]}
+\textit{Quisiera dedicar este Trabajo Fin de Máster, en primer lugar, a mi familia, por haber sido mi mayor apoyo durante todo este camino. Gracias por acompañarme en cada etapa, especialmente en los momentos de mayor dificultad, estrés e incertidumbre, y por confiar siempre en mí, incluso cuando decidí emprender un cambio de rama profesional. Vuestra confianza y vuestro cariño han sido fundamentales para llegar hasta aquí.}
+
+\textit{A mis amigos, por estar siempre presentes, tanto en los momentos en los que necesitaba desconectar y recargar fuerzas como cuando requería de su ayuda y apoyo. Gracias por hacer este camino mucho más llevadero.}
+
+\textit{Por último, a mi tutor, por su dedicación, orientación y constante disposición para ayudarme durante el desarrollo de este proyecto. Sus consejos y conocimientos han sido esenciales para la realización de este trabajo.} 
+
+\textit{A todos vosotros, gracias por formar parte de este logro.}
 
 \vfill
 \newpage
@@ -437,7 +443,7 @@ Con la popularización de los sensores de profundidad RGB-D, como el Microsoft K
 
 \subsection{Enfoques basados en cámara RGB monocular}
 
-La detección de gestos de \textit{pointing} a partir de una única cámara de color presenta el reto fundamental de que la dirección tridimensional del brazo está indeterminada: el rayo proyectivo de la cámara colapsa toda la información de profundidad en un punto 2D. Los enfoques clásicos abordaban este problema mediante segmentación de la mano por color de piel, seguimiento del brazo con contornos o filtros de partículas y estimación de la dirección como el vector entre el hombro y el extremo \textit{distal} del brazo, es decir, la parte más alejada del tronco, correspondiente a la muñeca o los dedos; sin embargo, son frágiles ante cambios de iluminación, ropa de manga larga o fondos complejos. La irrupción de modelos de estimación de pose de alta calidad como BlazePose \citep{bazarevsky2020blazepose} y OpenPose \citep{cao2017realtime} abrió una segunda generación en la que los \textit{landmarks} del miembro superior se obtienen directamente sin segmentación manual, permitiendo estimar la dirección de \textit{pointing} como una composición ponderada de los vectores articulares del brazo en el plano imagen. Este enfoque es el adoptado en el presente trabajo, donde se propone una heurística de fusión jerárquica de cuatro vectores del miembro superior, con ponderación adaptativa según la disponibilidad de cada \textit{landmark} y la fiabilidad de la estimación de Hands.
+La detección de gestos de \textit{pointing} a partir de una única cámara de color presenta el reto fundamental de que la dirección tridimensional del brazo está indeterminada: el rayo proyectivo de la cámara colapsa toda la información de profundidad en un punto 2D. Los enfoques clásicos abordaban este problema mediante segmentación de la mano por color de piel, seguimiento del brazo con contornos o filtros de partículas y estimación de la dirección como el vector entre el hombro y el extremo \textit{distal} del brazo, es decir, la parte más alejada del tronco, correspondiente a la muñeca o los dedos. Sin embargo, estos métodos clásicos resultan frágiles ante cambios de iluminación, ropa de manga larga o fondos complejos. La irrupción de modelos de estimación de pose de alta calidad como BlazePose \citep{bazarevsky2020blazepose} y OpenPose \citep{cao2017realtime} abrió una segunda generación en la que los \textit{landmarks} del miembro superior se obtienen directamente sin segmentación manual, permitiendo estimar la dirección de \textit{pointing} como una composición ponderada de los vectores articulares del brazo en el plano imagen. Este enfoque es el adoptado en el presente trabajo, donde se propone una heurística de fusión jerárquica de cuatro vectores del miembro superior, con ponderación adaptativa según la disponibilidad de cada \textit{landmark} y la fiabilidad de la estimación de Hands.
 
 Dos trabajos recientes ilustran el estado del arte en este segundo paradigma. \citet{bamani2025pointingnet} proponen PointingNet, un sistema que combina estimación de pose corporal con segmentación del brazo apuntador para reducir el error angular de la dirección estimada desde los 28° típicos de los modelos de pose generales hasta menos de 2°, alcanzando tasas de reconocimiento del 96\% con una sola webcam. \citet{nakamura2023deepoint} presentan DeePoint, una arquitectura basada en Vision Transformers que estima simultáneamente la presencia del gesto y la dirección de \textit{pointing}, aprovechando la coordinación espacio-temporal del tronco y las extremidades de forma global en lugar de centrarse únicamente en los \textit{landmarks} proximales del brazo. Ambos sistemas confirman que los enfoques de fusión que combinan múltiples segmentos del miembro superior superan los métodos de vector único.
 
@@ -511,7 +517,7 @@ Todo el procesamiento se ejecuta íntegramente en el navegador web, sin comunica
 
 \subsection{Captura de vídeo}
 
-El acceso a la cámara del dispositivo se realiza mediante la API \texttt{MediaDevices.getUserMedia()}, solicitando un flujo de vídeo con resolución preferida de 1280×720 píxeles. El flujo se asocia a un componente de reproducción de vídeo en el entorno del navegador cuya reproducción es continua y silenciada. La imagen no se invierte horizontalmente, de modo que el sistema de coordenadas mantiene la convención de espejo habitual en webcam: los objetos a la derecha del usuario aparecen en la mitad derecha del \textit{frame}.
+El acceso a la cámara del dispositivo se realiza mediante la API \texttt{MediaDevices \allowbreak .getUserMedia()}, solicitando un flujo de vídeo con resolución preferida de $1280 \times 720$ píxeles. El flujo se asocia a un elemento de vídeo en el entorno del navegador, cuya reproducción es continua y silenciada. La imagen no se invierte horizontalmente, de modo que el sistema de coordenadas mantiene la convención de espejo habitual en webcam: los objetos a la derecha del usuario aparecen en la mitad derecha del \textit{frame}.
 
 \subsection{Calibración de la superficie}
 
@@ -716,7 +722,7 @@ Si el gesto supera las tres restricciones, la función calcula una confianza $c 
   c = 0.5\,v_{\text{vis}} + 0.3\,e_{\text{ext}} + 0.2\,e_{\text{elev}}
 \end{equation}
 
-donde $v_{\text{vis}}$ es la visibilidad media del hombro y el codo, $e_{\text{ext}} = 1 - \min(1,\,\alpha / 150°)$ es el factor de extensión del codo (0° completamente extendido, 0 cuando $\alpha \geq 150°$), y $e_{\text{elev}}$ escala linealmente de 0, que supondría estar con brazo rozando el umbral mínimo de 30°, a 1, lo que ya sería tener el brazo horizontal o superior.
+donde $v_{\text{vis}}$ es la visibilidad media del hombro y el codo, $e_{\text{ext}} = 1 - \min(1,\,\alpha / 150°)$ es el factor de extensión del codo (0° completamente extendido, 0 cuando $\alpha \geq 150°$), y $e_{elev}$ escala linealmente desde 0 (cuando el brazo se encuentra en el umbral mínimo de orientación de $30^{\circ}$) hasta 1 (cuando el brazo alcanza una posición horizontal o superior).
 
 El ángulo de extensión $\alpha$ se incorpora como factor gradual de confianza, no como criterio binario de rechazo. En un entorno de aula, el usuario señala la pizarra desde distancia corta, lo que permite posturas con el codo parcialmente flexionado sin que el gesto deje de ser deíctico. Un umbral binario produciría falsos negativos frecuentes en señalamientos a zonas próximas a la cámara.
 
@@ -735,6 +741,10 @@ El ángulo de extensión $\alpha$ se incorpora como factor gradual de confianza,
 
 El umbral de activación es $C \geq 0.45$ y el de desactivación $C < 0.20$. Esta asimetría modela el ciclo de vida del gesto: la subida rápida ($\times 0.40$ por \textit{frame}) permite activar el gesto en aproximadamente 2 \textit{frames} con confianza media, respondiendo ágilmente al inicio del \textit{stroke}; la bajada lenta ($-0.10$ por \textit{frame}) proporciona robustez frente a pérdidas momentáneas de \textit{tracking}, las cuales son frecuentes cuando el \textit{landmark} queda en el borde del encuadre, sin interpretar cada \textit{frame} perdido como fin del gesto. El tiempo típico de desactivación desde confianza máxima es de aproximadamente 7 \textit{frames}.
 
+Para complementar la estabilización en las fases avanzadas del pipeline, el sistema introduce dos métricas cinemáticas adicionales implementadas en el módulo \texttt{metricas.js}: el \textit{jitter} angular del vector de apuntamiento y el \textit{jitter} de impacto espacial en la superficie. 
+
+El rastreador angular (\texttt{AngularTracker}) evalúa la variación de la dirección del vector de deíctico entre fotogramas consecutivos, clasificando la estabilidad del flujo según los umbrales críticos $\theta_{low} = 3^\circ$ y $\theta_{high} = 8^\circ$. Por su parte, el rastreador de impacto (\texttt{ImpactTracker}) mide la oscilación del punto proyectado directamente sobre el plano de la pizarra en coordenadas normalizadas. Este componente emplea umbrales de $0.008$ y $0.025$ para segmentar el estado cinemático en las categorías de \textit{estable}, \textit{moderado} o \textit{inestable}, permitiendo al sistema discriminar micro-oscilaciones involuntarias del usuario de un desplazamiento intencionado del apuntamiento.
+
 \subsection{Origen del rayo de pointing}
 
 El origen del rayo no se fija en el hombro, sino en el \textit{landmark} distal más preciso disponible, siguiendo la jerarquía: muñeca de Hands ($\text{wristH}$) → muñeca de Pose ($\text{wristP}$) → hombro. Para señalamientos cercanos (la pizarra a distancia de brazo), usar el hombro como origen introduce un error de paralaje sistemático: la extrapolación del vector desde el hombro amplifica el desplazamiento lateral entre el hombro y el punto objetivo. La muñeca, más próxima al plano de la pizarra, reduce ese error de forma proporcional a la distancia hombro-muñeca \citep{arslanoglu2025pointing3d}.
@@ -752,6 +762,15 @@ La función \texttt{rayPolygonIntersect()} descompone el cuadrilátero de la piz
 El sistema implementa dos modos de determinación del punto de impacto, seleccionados automáticamente según la disponibilidad de \textit{landmarks}:
 
 \textbf{Modo \textit{fingertip} directo.} Cuando MediaPipe Hands está activo y la punta del índice cae dentro del polígono de la pizarra en coordenadas de imagen, se usa directamente como punto de impacto. Este modo resulta ser el más preciso para señalamientos a corta distancia, donde la punta del dedo se aproxima físicamente a la superficie.
+
+En lo que respecta al modo \textit{fingertip}, la determinación de pertenencia de la punta del dedo índice dentro de la región poligonal de la pizarra se resuelve mediante un algoritmo de \textit{Point-in-Polygon} optimizado para cuadriláteros convexos (\texttt{isPointInConvexPolygon}). En lugar de recurrir a técnicas iterativas genéricas de alto coste computacional, se implementa el método del signo del producto vectorial por arista. 
+
+Dado un cuadrilátero convexo definido por sus vértices en orden cíclico $V_i = (x_i, y_i)$ para $i \in \{0, 1, 2, 3\}$ y un punto de impacto evaluado $P = (x_P, y_P)$, se computa para cada arista la función de orientación descrita en la Ecuación~\ref{eq:cross_product}:
+\begin{equation}
+\label{eq:cross_product}
+d_i = (x_P - x_i)(y_{i+1} - y_i) - (y_P - y_i)(x_{i+1} - x_i)
+\end{equation}
+Donde $V_4 = V_0$ para cerrar el contorno. El punto $P$ se dictamina como estrictamente interior si y solo si todos los determinantes resultantes comparten el mismo signo ($\forall i, d_i \ge 0$ o $\forall i, d_i \le 0$). Esta aproximación garantiza una validación geométrica con una complejidad temporal óptima de $\mathcal{O}(N)$ con $N=4$, idónea para entornos de ejecución en tiempo real.
 
 \textbf{Modo \textit{ray casting}.} Cuando la punta del índice no está dentro del polígono o Hands no se encuentra activo, se emplea la intersección geométrica rayo-polígono. Este modo maneja señalamientos a zonas no alcanzables físicamente por el dedo, en aquellas situaciones donde el usuario apunta desde una cierta distancia.
 
@@ -781,19 +800,60 @@ Por este motivo, el sistema evita establecer este umbral como una constante ríg
 
 La Fase 5 expone mediante controles deslizantes en la interfaz de usuario los dos parámetros de estabilización más críticos para la experiencia: el umbral de \textit{dwell} ($D$) y el \textit{debounce} de región ($N$). Ambos son modificables en tiempo real sin reiniciar el sistema, lo que facilita la exploración empírica de su efecto durante una sesión de evaluación y permite adaptar el sistema a distintos contextos de uso.
 
+\subsection{Instrumentación del Sistema y Registro de Sesión}
+Con el objetivo de auditar el rendimiento del framework de forma empírica y transparente, el código incluye una arquitectura de monitorización integrada por las clases \texttt{SessionLogger}, \texttt{PointingSessionLogger} y \texttt{GroundingSessionLogger}. Estos módulos actúan como sondas de software que instrumentan el ciclo de vida de cada fotograma, consolidando y exportando de manera automatizada reportes en formato estructurado (CSV) con indicadores avanzados de calidad de la interacción:
 
-\section{Aplicación de demostración integrada}
-\label{sec:demo}
+\begin{itemize}
+    \item \textbf{TrackingLostRate:} Proporción acumulada de fotogramas donde los modelos base (BlazePose/Hands) sufren de oclusión completa o pérdida crítica de confianza.
+    \item \textbf{FallbackRate:} Porcentaje de tiempo de ejecución en el cual la heurística degrada el cálculo del deíctico hacia estimaciones puramente posicionales u ópticas debido a la pérdida de visibilidad articular.
+    \item \textbf{Distribución de Modos Operacionales:} Desglose estadístico secuencial que cuantifica la permanencia del pipeline en los estados \textit{Full}, \textit{Partial}, \textit{Fallback} y \textit{Lost}, sirviendo como métrica de la robustez del sistema ante variaciones del entorno.
+    \item \textbf{Continuidad Máxima de Ráfaga:} Mide la ventana máxima de fotogramas ininterrumpidos con un gesto deíctico estable validado. Esta métrica resulta clave para evaluar de forma indirecta la fatiga del usuario y la estabilidad lumínica de la escena.
+\end{itemize}
 
-Con el fin de validar la integración del sistema completo en un escenario de uso real, se desarrolló una aplicación de demostración (\texttt{demo/}) que combina el pipeline de las fases~1--5 con una arquitectura de presentación colaborativa profesor-alumno.
+\section{Entornos de demostración y validación práctica}
 
-La aplicación se compone de un servidor Node.js que gestiona la comunicación en tiempo real mediante WebSockets y sirve los recursos estáticos con acceso compartido a los módulos del proyecto. La interfaz del profesor permite cargar una presentación en formato PDF, navegar entre diapositivas y activar la cámara para comenzar la sesión gestual: el usuario calibra la pantalla seleccionando sus cuatro esquinas visibles en la imagen de cámara, tras lo cual el pipeline completo (PoseEstimator $\rightarrow$ HandEstimator $\rightarrow$ extractDeicticLandmarks $\rightarrow$ PointingEstimator $\rightarrow$ BoardGrounding) opera en bucle continuo. Cuando se detecta un gesto de \textit{pointing} confirmado por \textit{dwell}, la aplicación extrae un fotograma de la diapositiva activa y lo envía al modelo VLLM local (Ollama) junto con un \textit{prompt} que incluye la región señalada; la respuesta se transmite progresivamente mediante \textit{streaming} a los alumnos conectados. La interfaz del alumno recibe en tiempo real los cambios de diapositiva, la posición del puntero y las descripciones generadas, proporcionando una experiencia accesible sin necesidad de hardware adicional.
+Para certificar la viabilidad de la arquitectura en escenarios reales, se han desarrollado distintos entornos web. Estos se dividen en un demostrador técnico básico para confirmar el funcionamiento del algoritmo, y dos pruebas de concepto orientadas a ilustrar casos de uso finales.
 
-La carga de los modelos MediaPipe se realiza de forma diferida al activar la cámara, evitando que la descarga de los ficheros WASM bloquee el arranque de la interfaz. Se resolvió además un conflicto de espacio de nombres inherente a la carga simultánea de múltiples módulos WebAssembly (OpenCV.js y MediaPipe), destruyendo la variable global \texttt{window.Module} tras la inicialización de OpenCV para evitar que los entornos intenten fusionarse y congelen el navegador\footnote{Este comportamiento y su resolución están documentados en el repositorio oficial de OpenCV (Issue \#5282).}.
+\subsection{Demostrador técnico del sistema (\textit{Showcase})}
 
-%----------
-%	CAPÍTULO 4 — EVALUACIÓN EXPERIMENTAL
-%----------
+Para comprobar visualmente el correcto funcionamiento de la arquitectura, se desarrolló una interfaz web básica de diagnóstico (\textit{showcase}). El objetivo principal de esta herramienta es demostrar en tiempo real que el sistema es capaz de reconocer la intención del gesto, calcular el rayo direccional y clasificar la región de apuntado correctamente sobre la superficie calibrada.
+
+A diferencia de las aplicaciones de usuario final, esta interfaz se centra exclusivamente en pintar el esqueleto extraído por MediaPipe sobre el flujo de vídeo y mostrar los parámetros básicos de la heurística (como el nivel de confianza y el brazo activo). Esta validación visual resultó de gran utilidad para comprobar empíricamente que el sistema operaba de forma fluida antes de integrarlo en lógicas de interacción más complejas.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.9\textwidth]{imagenes/demostracion_showcase.jpg} % Ajusta la ruta
+    \caption{Interfaz del demostrador técnico (\textit{showcase}).}
+    \label{fig:showcase}
+\end{figure}
+
+\subsection{Pruebas de concepto y casos de uso interactivos (\textit{Demos})}
+
+Una vez validada la fiabilidad de la arquitectura base, se desarrollaron dos aplicaciones interactivas orientadas a demostrar la versatilidad del sistema de \textit{grounding} espacial en contextos educativos reales. Estas demostraciones (\textit{demos}) ilustran cómo la salida geométrica del sistema puede acoplarse a diferentes lógicas de negocio y niveles de granularidad espacial, operando de forma totalmente local en el navegador.
+
+\begin{itemize}
+    \item \textbf{Panel temático interactivo (Cuadrícula semántica):} Esta aplicación demuestra el mapeo directo de las coordenadas homográficas a una cuadrícula semántica de $3\times3$. El usuario calibra un póster físico y, al mantener el gesto sobre una región específica (validado mediante control de \textit{dwell}), el sistema recupera la ficha de contenido asociada (por ejemplo, cuerpos del sistema solar). A nivel de \textit{software}, incorpora una arquitectura multipantalla mediante la API \texttt{BroadcastChannel}, que sincroniza la consola de control del usuario con un visualizador a pantalla completa de forma local y sin latencia. Además, integra síntesis de voz (\textit{Text-to-Speech}) para leer el contenido, proporcionando \textit{feedback} multimodal.
+
+    % --- Figura del Panel Temático ---
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.95\textwidth]{imagenes/demostracion_panel_planetas.jpg} % Ajusta la ruta
+    \caption{Prueba de concepto del panel temático interactivo. El sistema mapea las coordenadas homográficas a una cuadrícula semántica y despliega el contenido de la región seleccionada tras el periodo de confirmación.}
+    \label{fig:demo_panel}
+\end{figure}
+    
+    \item \textbf{Mapamundi interactivo (Geometrías complejas):} Para demostrar que la precisión del sistema no se limita a regiones ortogonales gruesas, se implementó un planisferio interactivo. Las coordenadas normalizadas se proyectan sobre un mapa equirectangular y se contrastan contra fronteras geopolíticas reales almacenadas en formato GeoJSON. Mediante el algoritmo de punto en polígono (\textit{Ray-Casting}), el sistema identifica el país exacto señalado. Al igual que el panel temático, esta herramienta replica el impacto visual en tiempo real en una segunda pantalla y verbaliza el nombre del país, evidenciando la capacidad de resolución espacial fina de la heurística.
+\end{itemize}
+
+% --- Figura del Mapamundi ---
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.95\textwidth]{imagenes/demostracion_mapa.jpg} % Ajusta la ruta
+    \caption{Demostración del mapamundi interactivo. Las coordenadas estimadas se cruzan geométricamente con fronteras GeoJSON mediante \textit{ray-casting} para identificar el país exacto proyectado sobre el plano ecuatorial.}
+    \label{fig:demo_mapa}
+\end{figure}
+
+Finalmente, la integración de estas aplicaciones complejas en el navegador requirió gestionar de forma estricta la estabilidad concurrente. Para ello, se resolvió un conflicto de espacio de nombres inherente a la carga simultánea de múltiples módulos WebAssembly, eliminando la referencia a la variable global \texttt{window.Module} tras la inicialización de OpenCV.js. Esto evita que los entornos intenten fusionarse y bloqueen el hilo de ejecución principal del navegador.
 
 \chapter{Evaluación experimental}
 \label{cap:evaluacion}
@@ -865,7 +925,7 @@ La Tabla~\ref{tab:heuristica} recoge las métricas de clasificación binaria y d
 E1 & 30 &  0 &  0 & 21 & \cellcolor{red!20}58{,}8\,\% & \cellcolor{red!20}58{,}8\,\% & \cellcolor{green!25}100{,}0\,\% & \cellcolor{red!20}74{,}1\,\% & \cellcolor{red!20}28{,}6\,\% \\
 E2 & 14 & 16 &  9 & 12 & \cellcolor{red!20}45{,}1\,\% & \cellcolor{red!20}53{,}8\,\% & \cellcolor{red!20}46{,}7\,\%   & \cellcolor{red!20}50{,}0\,\% & \cellcolor{red!20}57{,}1\,\% \\
 E3 & 23 &  7 & 19 &  2 & \cellcolor{yellow!35}82{,}4\,\% & \cellcolor{green!25}92{,}0\,\% & \cellcolor{red!20}76{,}7\,\%  & \cellcolor{yellow!35}83{,}7\,\% & \cellcolor{red!20}76{,}2\,\% \\
-E4 & 23 &  7 & 19 &  2 & \cellcolor{yellow!35}82{,}4\,\% & \cellcolor{green!25}92{,}0\,\% & \cellcolor{red!20}76{,}7\,\%  & \cellcolor{yellow!35}83{,}7\,\% & \cellcolor{red!20}71{,}4\,\% \\
+E4 & 23 &  7 & 19 &  2 & \cellcolor{yellow!35}82{,}4\,\% & \cellcolor{green!25}92{,}0\,\% & \cellcolor{red!20}76{,}7\,\%  & \cellcolor{yellow!35}83{,}7\,\% & \cellcolor{red!20}76{,}2\,\% \\
 E5 & 23 &  7 & 19 &  2 & \cellcolor{yellow!35}82{,}4\,\% & \cellcolor{green!25}92{,}0\,\% & \cellcolor{red!20}76{,}7\,\%  & \cellcolor{yellow!35}83{,}7\,\% & \cellcolor{red!20}76{,}2\,\% \\
 E6 & 23 &  7 & 19 &  2 & \cellcolor{yellow!35}82{,}4\,\% & \cellcolor{green!25}92{,}0\,\% & \cellcolor{red!20}76{,}7\,\%  & \cellcolor{yellow!35}83{,}7\,\% & \cellcolor{green!25}91{,}3\,\% \\
 \hline
@@ -934,7 +994,11 @@ Para evaluar la precisión del \textit{grounding} espacial de extremo a extremo,
   \item \textbf{45 grados}: sujeto a 45° de ángulo oblicuo respecto a la cámara, entre el escenario frontal y el lateral.
 \end{itemize}
 
-Cada sesión se grabó con el sistema de logging de la Fase~5 a 30 fps; el \textit{ground truth} de región (\texttt{GT\_Region}) se asignó manualmente \textit{frame} a \textit{frame} durante la anotación. Las sesiones suman 15.757 \textit{frames} etiquetados en total.
+Las sesiones de evaluación se registraron utilizando el sistema de \textit{logging} integrado en el \textit{framework}, capturando el flujo de vídeo y los metadatos generados por el algoritmo a una tasa de 30 fps. Para solventar el desafío de etiquetar con precisión un volumen tan elevado de datos (15.757 fotogramas en total), se diseñó e implementó una aplicación web específica de evaluación guiada (\texttt{protocolo.html}).
+
+En lugar de recurrir a una anotación manual \textit{a posteriori}, esta herramienta automatiza la recolección de la referencia espacial real (\textit{ground truth} o GT\_Region). El sistema interactivo guía al usuario secuencialmente a través de las nueve regiones de la cuadrícula, indicándole por pantalla el objetivo actual. Mientras el usuario mantiene el gesto sobre la región solicitada, la aplicación captura la secuencia temporal de fotogramas y los etiqueta automáticamente en tiempo real con dicha región como verdad base. 
+
+Este enfoque metodológico garantiza la sincronización exacta entre la intención del usuario y la etiqueta de evaluación registrada, mitigando el error humano inherente al etiquetado visual e incrementando exponencialmente la reproducibilidad y agilidad en la generación del \textit{dataset} final.
 
 \subsection{Precisión de región por escenario}
 
@@ -998,7 +1062,7 @@ La Figura~\ref{fig:confusion} muestra las matrices de confusión para los escena
   \caption{\label{fig:confusion}Matrices de confusión para los escenarios frontal y espaldas. Filas = región real (\textit{ground truth}); columnas = región predicha. Verde (diagonal): aciertos; rojo (fuera de diagonal): errores. Intensidad proporcional al recall por clase.}
 \end{figure}
 
-En el escenario frontal la diagonal es prácticamente perfecta, con errores residuales inferiores al 1\,\% concentrados en transiciones entre regiones adyacentes. En el escenario espaldas, el 81\,\% de los errores (531 de 657) son confusiones sistemáticas del tipo \texttt{medio-*}$\to$\texttt{superior-izquierda}: \texttt{medio-centro} se predice como \texttt{superior-izquierda} en 443 \textit{frames}, y \texttt{medio-izquierda} en 88 adicionales. Este desplazamiento diagonal (a la vez vertical y horizontal) indica un sesgo geométrico del rayo de brazo en vista trasera: cuando el usuario apunta a la franja media del tablero de espaldas a la cámara, los \textit{landmarks} de hombro y codo de BlazePose Pose producen un vector cuya proyección en el plano imagen apunta hacia el cuadrante superior-izquierdo de la imagen, desplazando la predicción dos filas y una columna respecto al objetivo real. El tercer error en importancia (\texttt{superior-derecha}$\to$\texttt{superior-centro}, 83 \textit{frames}) sí corresponde a una confusión de columna adyacente, posiblemente por el espejo izquierda-derecha que introduce la vista trasera.
+En el escenario frontal, la matriz de confusión presenta una diagonal prácticamente perfecta, limitándose los errores residuales (inferiores al 1\,\%) a las transiciones entre regiones adyacentes. Por el contrario, en el escenario de espaldas se observa que el 81\,\% de los fallos (531 de 657) responden a un patrón sistemático de confusión en el que las regiones de la franja media se predicen como \textit{superior-izquierda} (443 casos procedentes de \textit{medio-centro} y 88 de \textit{medio-izquierda}). Este sesgo evidencia una desviación geométrica inherente al cálculo del rayo en la vista posterior. Al apuntar a la zona central dando la espalda a la cámara, los puntos articulares del hombro y el codo extraídos por BlazePose generan un vector cuya proyección bidimensional se desvía hacia el cuadrante superior izquierdo. Esto desplaza la predicción una fila hacia arriba y una columna hacia la izquierda para los objetivos centrales, y una fila hacia arriba para los del lateral izquierdo. Finalmente, el tercer error más frecuente (\textit{superior-derecha} a \textit{superior-centro}, con 83 casos) obedece a una confusión entre columnas adyacentes, un fenómeno directamente atribuible al efecto espejo lateral que introduce esta perspectiva.
 
 \section{Comparación con modelos de visión-lenguaje}
 \label{sec:eval_vllm}
@@ -1259,5 +1323,32 @@ $2k{+}1$ & \texttt{user}      & \texttt{And this image? End with: ANSWER: <ident
 \end{table}
 
 La región predicha se extrae de la línea \texttt{ANSWER:~<identifier>} de la respuesta al último turno.
+\chapter{REPOSITORIO DE CÓDIGO Y MATERIAL COMPLEMENTARIO}
+
+Con el objetivo de garantizar la reproducibilidad de los experimentos empíricos presentados en esta memoria y fomentar los principios de transparencia, todo el código fuente y el material complementario desarrollado durante este Trabajo Fin de Máster ha sido publicado en un repositorio de GitHub.
+
+
+El repositorio es de acceso público y puede consultarse a través del siguiente enlace:
+
+\vspace{0.5cm}
+\begin{center}
+    \url{https://github.com/PMAranda/Deicticos}
+\end{center}
+\vspace{0.5cm}
+
+
+\chapter{DECLARACIÓN DE USO DE INTELIGENCIA ARTIFICIAL GENERATIVA}
+
+En cumplimiento con los principios de integridad académica y transparencia de la Universidad Carlos III de Madrid, el autor declara el uso de herramientas basadas en Inteligencia Artificial Generativa (específicamente los modelos Gemini de Google y Claude de Anthropic) como asistentes técnicos y lingüísticos durante el desarrollo de este Trabajo Fin de Máster. 
+
+Su utilización se ha delimitado estrictamente a las siguientes tareas, siempre bajo la supervisión, criterio y validación final del autor:
+
+\begin{itemize}
+    \item \textbf{Asistencia en el desarrollo de software:} Los modelos fueron empleados como herramientas de apoyo a la programación para la generación de fragmentos de código, la resolución de errores (\textit{debugging}) y la consulta de sintaxis de las bibliotecas empleadas. La arquitectura modular del sistema, el diseño de la heurística de \textit{pointing}, la toma de decisiones técnicas y la integración de MediaPipe y OpenCV.js fueron concebidas y dirigidas íntegramente por el autor. Todo el código generado por IA fue revisado, adaptado y validado empíricamente para garantizar su correcto funcionamiento en el marco del proyecto.
+    
+    \item \textbf{Refinamiento en la redacción de la memoria:} La ideación, estructuración, análisis de datos y la redacción del primer borrador de este documento son obra exclusiva del autor. El uso de la IA generativa en la fase de escritura se limitó a labores de corrección ortotipográfica, mejora de la fluidez y cohesión gramatical, y refinamiento del estilo para adecuarlo al tono académico exigido en un documento de esta naturaleza.
+\end{itemize}
+
+En todo momento, la Inteligencia Artificial ha operado como una herramienta de soporte computacional, sin sustituir el razonamiento crítico, el análisis de resultados ni la aportación intelectual del proyecto. El autor asume la responsabilidad total y exclusiva sobre la exactitud, originalidad y validez del código fuente desarrollado y del contenido plasmado en esta memoria.
 
 \end{document}
