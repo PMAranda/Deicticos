@@ -20,7 +20,7 @@ export const CONTENT = {
   'inferior-derecha':   { img: 'img/neptuno.svg',  title: 'Neptuno',  body: 'El planeta más lejano. Tiene los vientos más rápidos del sistema solar, de hasta 2.000 kilómetros por hora.' },
 };
 
-// Orden de la rejilla 3×3 (fila-mayor) para construir las vistas
+// Orden de la cuadrícula 3×3 (fila-mayor) para construir las vistas
 export const GRID_ORDER = [
   'superior-izquierda', 'superior-centro', 'superior-derecha',
   'medio-izquierda',    'medio-centro',    'medio-derecha',
