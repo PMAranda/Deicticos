@@ -1,8 +1,0 @@
-node_modules/
-
-# Material de trabajo — no forma parte de la entrega
-memoria_tfm/ejemplos_anteriores/
-memoria_tfm/posible_estado_arte/
-
-# Backups y temporales
-*.zip
