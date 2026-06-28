@@ -513,6 +513,13 @@ La arquitectura resultante se organiza en cinco módulos funcionales principales
 
 Todo el procesamiento se ejecuta íntegramente en el navegador web, sin comunicación con servidor externo. Los modelos de MediaPipe se compilan a WebAssembly (WASM) y se aceleran mediante WebGL \citep{lugaresi2019mediapipe}, mientras que OpenCV.js proporciona las primitivas de álgebra lineal necesarias para la homografía \citep{bradski2000opencv}. La entrada del sistema es el flujo de vídeo capturado mediante la API \texttt{getUserMedia}, que requiere origen seguro (HTTPS o \textit{localhost}). La salida consiste en una referencia espacial semántica, compuesta por la etiqueta de región y sus coordenadas normalizadas, la cual se emite a la tasa de \textit{frames} del flujo de vídeo (típicamente 30 fps).
 
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{imagenes/esquema_arquitectura.png}
+\caption{\label{fig:esquema_arquitectura}Esquema de la arquitectura del sistema}
+\end{figure}
+
 \section{Fase 1: Infraestructura geométrica}
 
 \subsection{Captura de vídeo}
